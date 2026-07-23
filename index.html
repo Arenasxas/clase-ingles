@@ -109,6 +109,8 @@
   .rowbtw{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0}
   .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--brand-dark);color:#fff;padding:14px 20px;border-radius:14px;box-shadow:var(--shadow);font-weight:700;opacity:0;transition:.35s;z-index:100;max-width:90%;text-align:center}
   .toast.show{opacity:1;transform:translate(-50%,0)}
+  .asent{border-radius:5px;transition:background .2s}
+  .asent.on{background:#fbe7bf;box-shadow:0 0 0 3px #fbe7bf}
 </style>
 </head>
 <body>
@@ -235,6 +237,7 @@
       <button class="btn sec" onclick="openCamino()" style="margin-top:10px">🗺️ Camino de lecciones <span id="caminoProg"></span></button>
       <button class="btn sec" onclick="openRoleplay()" style="margin-top:10px">🎭 Situaciones reales</button>
       <button class="btn sec" onclick="openHistorias()" style="margin-top:10px">📖 Historias y lecturas</button>
+      <button class="btn sec" onclick="openAudio()" style="margin-top:10px">🎧 Solo escuchar (audio-clases)</button>
       <p class="hint center" id="usageHint" style="margin-top:10px"></p>
       <div class="grid" style="margin-top:16px">
         <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
@@ -318,6 +321,11 @@
       <div id="histBox"></div>
     </section>
 
+    <!-- AUDIO / SOLO ESCUCHAR -->
+    <section class="view" id="v-audio">
+      <div id="audioBox"></div>
+    </section>
+
     <!-- APUNTES -->
     <section class="view" id="v-notes">
       <div class="card">
@@ -379,7 +387,7 @@ const LS = "claseIngles.v2";
 const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, history:[],
   notes:[], goalsDone:{}, dailyGoal:5,
   prefs:{style:[],styleMore:"",objective:""}, material:"", seenGuide:false,
-  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0,
+  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" } };
 let S = migrate(load()) || structuredClone(DEFAULT);
@@ -410,6 +418,7 @@ const BADGES=[
  {id:"first_lesson",emoji:"🗺️",name:"Primera lección",cond:s=>Object.keys(s.lessonsDone||{}).length>=1},
  {id:"ten_lessons",emoji:"🎖️",name:"10 lecciones",cond:s=>Object.keys(s.lessonsDone||{}).length>=10},
  {id:"first_story",emoji:"📖",name:"Primera historia",cond:s=>(s.storiesRead||0)>=1},
+ {id:"first_audio",emoji:"🎧",name:"Primer audio",cond:s=>(s.audioDone||0)>=1},
  {id:"streak3",emoji:"🔥",name:"3 días seguidos",cond:s=>s.stats.best>=3},
  {id:"streak7",emoji:"🔥",name:"1 semana seguida",cond:s=>s.stats.best>=7},
  {id:"streak30",emoji:"🏆",name:"1 mes seguido",cond:s=>s.stats.best>=30},
@@ -441,6 +450,7 @@ function openLogros(){
 
 /* ===== Router ===== */
 function show(id){
+  audioPlaying=false; if(window.speechSynthesis) speechSynthesis.cancel();
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan","v-guide","v-prefs"].includes(id);
@@ -448,7 +458,7 @@ function show(id){
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
     "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes",
-    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias" };
+    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar" };
   document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
@@ -999,6 +1009,64 @@ function startRoleplay(s){
   document.getElementById("chat").innerHTML="";
   sendToTeacher();
 }
+
+/* ===== SOLO ESCUCHAR / AUDIO-CLASES (IA) ===== */
+var audioLesson=null, audioSents=[], audioIdx=0, audioPlaying=false;
+function openAudio(){
+  document.getElementById("audioBox").innerHTML=`<div class="card"><h2>🎧 Solo escuchar</h2>
+    <p class="sub">Audio-clases de los temas, como un audiolibro. Poné play y escuchá; el texto y el apunte quedan para leer. Elegí un tema:</p>
+    <div id="audioTopics"></div></div>`;
+  const l=document.getElementById("audioTopics");
+  const b0=document.createElement("button"); b0.className="btn"; b0.textContent="🎲 Sorpresa (tema del día)"; b0.onclick=()=>generateAudio("un tema cotidiano útil e interesante"); l.appendChild(b0);
+  lessonsForLevel().forEach(t=>{ const b=document.createElement("button"); b.className="opt"; b.style.marginBottom="8px"; b.innerHTML=`<b>${t.title}</b><br><span style="font-size:14px;color:var(--muted)">${t.focus}</span>`; b.onclick=()=>generateAudio(t.title+" ("+t.focus+")"); l.appendChild(b); });
+  show("v-audio");
+}
+function audioError(e){ document.getElementById("audioBox").innerHTML=`<div class="card"><p>${e&&e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana, o escuchá el Repaso (gratis).":"Uy, hubo un error al crear el audio. Probá de nuevo."}</p><button class="btn" onclick="openAudio()">← Elegir otro tema</button></div>`; }
+async function generateAudio(topic){
+  show("v-audio");
+  document.getElementById("audioBox").innerHTML=`<div class="card center"><div class="spin dark" style="width:36px;height:36px;border-width:4px"></div><p class="sub" style="margin-top:14px">Preparando tu audio-clase…</p></div>`;
+  try{
+    const raw=await gemini(`Creás mini-clases habladas (audio) para aprender inglés, nivel ${S.level}. Respondé SOLO JSON.`,
+      [{role:"user",parts:[{text:`Creá una mini-clase hablada en inglés sobre "${topic}" para nivel ${S.level}. Como un profesor explicando de a poco, 8 a 12 oraciones claras, vocabulario acorde al nivel. Sumá un apunte en español con los puntos clave. JSON: {"title":"título en inglés","script":"la clase en inglés, oraciones separadas por punto","apunte":["3 a 5 puntos clave en español"],"vocab":[{"en":"palabra o frase","es":"significado en español"}]}`}]}],true);
+    audioLesson=JSON.parse(raw);
+    (audioLesson.apunte||[]).forEach(a=>S.notes.push({t:`🎧 ${audioLesson.title}: ${a}`,when:Date.now()}));
+    (audioLesson.vocab||[]).forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,""); });
+    if(S.notes.length>300) S.notes=S.notes.slice(-300);
+    S.audioDone=(S.audioDone||0)+1; checkBadges(); save();
+    renderAudioPlayer();
+  }catch(e){ audioError(e); }
+}
+function renderAudioPlayer(){
+  const s=audioLesson;
+  audioSents=(s.script||"").split(/(?<=[.!?])\s+/).filter(x=>x.trim());
+  audioIdx=0; audioPlaying=false;
+  const sents=audioSents.map((t,i)=>`<span class="asent" data-i="${i}">${t} </span>`).join("");
+  document.getElementById("audioBox").innerHTML=`<div class="card">
+    <h2>🎧 ${s.title}</h2>
+    <div class="row"><button class="btn" id="audioPlay" style="margin:0" onclick="audioToggle()">▶️ Reproducir</button>
+    <button class="btn sec" style="margin:0" onclick="audioRestart()">⏮️ Reiniciar</button></div>
+    <p class="hint">Podés solo escuchar, o seguir el texto con la vista (se resalta lo que suena).</p>
+    <div id="audioText" style="font-size:20px;line-height:1.9;margin-top:12px">${sents}</div>
+    ${s.apunte&&s.apunte.length?`<h3 style="margin-top:18px">📒 Apunte</h3>`+s.apunte.map(a=>`<div class="note">${a}</div>`).join("")+`<p class="hint">Este apunte quedó guardado en "Mis apuntes".</p>`:""}
+    <div class="row" style="margin-top:8px"><button class="btn sec" style="margin:0" onclick="openAudio()">🎧 Otro tema</button>
+    <button class="btn ghost" style="margin:0" onclick="renderHome();show('v-home')">← Inicio</button></div></div>`;
+}
+function audioHL(i){ document.querySelectorAll(".asent").forEach(e=>e.classList.remove("on")); const el=document.querySelector('.asent[data-i="'+i+'"]'); if(el){ el.classList.add("on"); el.scrollIntoView({block:"center",behavior:"smooth"}); } }
+function audioPlayFrom(i){
+  const btn=document.getElementById("audioPlay");
+  if(i>=audioSents.length){ audioPlaying=false; if(btn) btn.textContent="▶️ Reproducir"; document.querySelectorAll(".asent").forEach(e=>e.classList.remove("on")); return; }
+  audioIdx=i; audioHL(i);
+  const u=new SpeechSynthesisUtterance(audioSents[i]); u.lang="en-US"; u.rate=0.9;
+  const v=voices.find(v=>v.lang==="en-US")||voices.find(v=>v.lang.startsWith("en")); if(v) u.voice=v;
+  u.onend=()=>{ if(audioPlaying) audioPlayFrom(i+1); };
+  speechSynthesis.speak(u);
+}
+function audioToggle(){
+  const btn=document.getElementById("audioPlay");
+  if(audioPlaying){ audioPlaying=false; speechSynthesis.cancel(); btn.textContent="▶️ Reproducir"; }
+  else { audioPlaying=true; btn.textContent="⏸️ Pausar"; speechSynthesis.cancel(); audioPlayFrom(audioIdx>=audioSents.length?0:audioIdx); }
+}
+function audioRestart(){ speechSynthesis.cancel(); audioIdx=0; audioPlaying=true; const btn=document.getElementById("audioPlay"); if(btn) btn.textContent="⏸️ Pausar"; audioPlayFrom(0); }
 
 /* ===== HISTORIAS / LECTURAS (IA) ===== */
 let story=null, storyShowEs=false;

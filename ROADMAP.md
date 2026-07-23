@@ -26,8 +26,10 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 ## 🔨 En progreso
 - (nada abierto — roadmap base completo)
 
+## ✅ Hecho (extra)
+- **🎧 Solo escuchar / audio-clases** — la IA arma una mini-clase hablada del tema, se reproduce manos libres con resaltado del texto (read-along), guarda apunte en español y suma vocabulario a las tarjetas
+
 ## 💡 Ideas futuras
-- Modo "solo escuchar" (audio-clase manos libres)
 - Subir foto de un texto/cartel para practicar (OCR)
 - Repaso de errores frecuentes
 - Voz en tiempo real (Gemini Live API) — experiencia tipo llamada
