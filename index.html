@@ -234,6 +234,7 @@
       </div>
       <button class="btn sec" onclick="openCamino()" style="margin-top:10px">🗺️ Camino de lecciones <span id="caminoProg"></span></button>
       <button class="btn sec" onclick="openRoleplay()" style="margin-top:10px">🎭 Situaciones reales</button>
+      <button class="btn sec" onclick="openHistorias()" style="margin-top:10px">📖 Historias y lecturas</button>
       <p class="hint center" id="usageHint" style="margin-top:10px"></p>
       <div class="grid" style="margin-top:16px">
         <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
@@ -312,6 +313,11 @@
       <div id="caminoBox"></div>
     </section>
 
+    <!-- HISTORIAS -->
+    <section class="view" id="v-historias">
+      <div id="histBox"></div>
+    </section>
+
     <!-- APUNTES -->
     <section class="view" id="v-notes">
       <div class="card">
@@ -373,7 +379,7 @@ const LS = "claseIngles.v2";
 const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, history:[],
   notes:[], goalsDone:{}, dailyGoal:5,
   prefs:{style:[],styleMore:"",objective:""}, material:"", seenGuide:false,
-  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{},
+  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" } };
 let S = migrate(load()) || structuredClone(DEFAULT);
@@ -403,6 +409,7 @@ const BADGES=[
  {id:"first_role",emoji:"🎭",name:"Primera situación",cond:s=>s.rolesDone>=1},
  {id:"first_lesson",emoji:"🗺️",name:"Primera lección",cond:s=>Object.keys(s.lessonsDone||{}).length>=1},
  {id:"ten_lessons",emoji:"🎖️",name:"10 lecciones",cond:s=>Object.keys(s.lessonsDone||{}).length>=10},
+ {id:"first_story",emoji:"📖",name:"Primera historia",cond:s=>(s.storiesRead||0)>=1},
  {id:"streak3",emoji:"🔥",name:"3 días seguidos",cond:s=>s.stats.best>=3},
  {id:"streak7",emoji:"🔥",name:"1 semana seguida",cond:s=>s.stats.best>=7},
  {id:"streak30",emoji:"🏆",name:"1 mes seguido",cond:s=>s.stats.best>=30},
@@ -441,7 +448,7 @@ function show(id){
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
     "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes",
-    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino" };
+    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias" };
   document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
@@ -991,6 +998,42 @@ function startRoleplay(s){
   document.getElementById("topTitle").textContent=`${s.emoji} ${s.title}`;
   document.getElementById("chat").innerHTML="";
   sendToTeacher();
+}
+
+/* ===== HISTORIAS / LECTURAS (IA) ===== */
+let story=null, storyShowEs=false;
+async function openHistorias(){
+  show("v-historias");
+  document.getElementById("histBox").innerHTML=`<div class="card center"><div class="spin dark" style="width:36px;height:36px;border-width:4px"></div><p class="sub" style="margin-top:14px">Escribiendo una historia para vos…</p></div>`;
+  try{
+    const tema=S.prefs.objective||S.goal||"la vida cotidiana";
+    const raw=await gemini(`Escribís historias cortas graduadas para aprender inglés, nivel ${S.level}. Respondé SOLO JSON.`,
+      [{role:"user",parts:[{text:`Escribí una historia MUY corta (5 a 7 oraciones) en inglés para nivel ${S.level}, sobre ${tema} o un tema cotidiano lindo. Vocabulario simple y acorde al nivel. JSON: {"title":"título en inglés","story":"la historia en inglés","es":"traducción al español","questions":[{"q":"pregunta de comprensión en español","options":["3 opciones"],"answer":"la opción correcta"},{"q":"otra pregunta en español","options":["3 opciones"],"answer":"la correcta"}]}`}]}],true);
+    story=JSON.parse(raw); storyShowEs=false;
+    S.storiesRead=(S.storiesRead||0)+1; checkBadges(); save();
+    renderStory();
+  }catch(e){ document.getElementById("histBox").innerHTML=`<div class="card"><p>${e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana, o practicá con Repaso / Pronunciación (gratis).":"Uy, hubo un error al crear la historia. Probá de nuevo."}</p><button class="btn" onclick="renderHome();show('v-home')">← Inicio</button></div>`; }
+}
+function toggleEs(){ storyShowEs=!storyShowEs; renderStory(); }
+function renderStory(){
+  const s=story; let qh="";
+  (s.questions||[]).forEach((q,qi)=>{ qh+=`<div style="margin-top:14px"><b>${q.q}</b><div id="sq${qi}"></div></div>`; });
+  document.getElementById("histBox").innerHTML=`<div class="card">
+    <h2>📖 ${s.title}</h2>
+    <button class="btn sec" onclick="speak(story.story,'en-US')">🔊 Escuchar la historia</button>
+    <p style="font-size:20px;line-height:1.75;margin-top:12px">${s.story}</p>
+    <button class="btn ghost" onclick="toggleEs()">${storyShowEs?"▲ Ocultar traducción":"▼ Ver traducción en español"}</button>
+    ${storyShowEs?`<div class="note">${s.es}</div>`:""}
+    <h3 style="margin-top:18px">¿Entendiste?</h3>
+    <div id="storyQs">${qh}</div>
+    <button class="btn" onclick="openHistorias()" style="margin-top:16px">Otra historia ✨</button>
+    <button class="btn ghost" onclick="renderHome();show('v-home')">← Inicio</button></div>`;
+  (s.questions||[]).forEach((q,qi)=>{
+    const c=document.getElementById("sq"+qi);
+    shuffle(q.options).forEach(o=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=o;
+      b.onclick=()=>{ if(o.trim().toLowerCase()===q.answer.trim().toLowerCase()){ b.classList.add("sel"); b.textContent="✅ "+o; bumpInter(); } else { b.style.borderColor="var(--err)"; b.textContent="❌ "+o; } };
+      c.appendChild(b); });
+  });
 }
 
 /* ===== PRONUNCIACIÓN (local) ===== */

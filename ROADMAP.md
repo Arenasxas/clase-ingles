@@ -21,9 +21,16 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 - **P2 · Logros / insignias / XP** — 12 insignias, puntos, niveles, avisos (toast) al desbloquear
 - **P3 · Camino de lecciones por nivel** — 10 lecciones por nivel (A1–C1), progreso, desbloqueo lineal, +20 XP por lección
 - **P4 · Feedback de pronunciación** — repetir frase, marca palabras bien (verde) / a reforzar (rojo) + puntaje. Local, sin API
+- **P5 · Historias / lecturas graduadas** — la IA crea un cuento corto a nivel, con audio, traducción y 2 preguntas de comprensión
 
 ## 🔨 En progreso
-- **P5 · Historias / lecturas graduadas** — input comprensible (Duolingo Stories/LingQ)
+- (nada abierto — roadmap base completo)
+
+## 💡 Ideas futuras
+- Modo "solo escuchar" (audio-clase manos libres)
+- Subir foto de un texto/cartel para practicar (OCR)
+- Repaso de errores frecuentes
+- Voz en tiempo real (Gemini Live API) — experiencia tipo llamada
 
 ## ⏳ Próximo (priorizado)
 
