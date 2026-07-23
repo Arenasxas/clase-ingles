@@ -170,7 +170,38 @@
         <p class="sub">Este es tu punto de partida y tu plan.</p>
         <div class="center"><span class="chip" id="planLvl" style="font-size:19px;padding:10px 18px"></span></div>
         <div id="planBody" style="margin-top:16px"></div>
-        <button class="btn" id="btnStartClass">🎓 Empezar mi primera clase</button>
+        <button class="btn" id="btnPlanNext">Continuar → personalizar 🎨</button>
+      </div>
+    </section>
+
+    <!-- GUIA -->
+    <section class="view" id="v-guide">
+      <div class="card">
+        <h2 id="guideTitle">Cómo funciona tu clase 📖</h2>
+        <p class="sub">Es tu clase de inglés personal, con una profe que te acompaña. Así de fácil:</p>
+        <div class="note"><b>1. 🎤 Hablás o escribís</b><br>Tocá el micrófono y hablá en inglés, o escribí abajo. No importa si tiene errores.</div>
+        <div class="note"><b>2. 👩‍🏫 La profe te corrige</b><br>Te muestra ❌ lo que dijiste y ✅ la forma correcta, y te lo explica en español.</div>
+        <div class="note"><b>3. 🔊 Escuchás</b><br>Tocá "Escuchar en inglés" para oír la pronunciación las veces que quieras.</div>
+        <div class="note"><b>4. 📒 Apuntes solos</b><br>Lo importante se guarda solo en "Mis apuntes".</div>
+        <div class="note"><b>5. 🔥 Un poco cada día</b><br>Practicá un ratito por día y sumá días seguidos. Sin apuro.</div>
+        <button class="btn" id="btnGuideNext">Entendido 👍</button>
+      </div>
+    </section>
+
+    <!-- PERSONALIZAR -->
+    <section class="view" id="v-prefs">
+      <div class="card">
+        <h2>Personalizá tu clase 🎨</h2>
+        <p class="sub">Contá cómo te gusta y qué querés lograr. La profe se adapta a vos. Podés cambiarlo cuando quieras.</p>
+        <label>¿Cómo te gustaría que sea la clase? (tocá las que te gusten)</label>
+        <div id="styleChips"></div>
+        <label for="prefMore">¿Algo más sobre cómo querés las clases? (opcional)</label>
+        <textarea id="prefMore" placeholder="Ej: bien despacio, con ejemplos de cocina, que me haga repetir..."></textarea>
+        <label for="prefObj">¿Qué querés lograr con el inglés?</label>
+        <textarea id="prefObj" placeholder="Ej: entender películas sin subtítulos, hablar con mi nieto en Canadá..."></textarea>
+        <label for="prefMat">Material tuyo (opcional)</label>
+        <textarea id="prefMat" placeholder="Pegá acá una canción, un texto, palabras o temas que te gusten. La profe los va a usar en tus clases." style="min-height:120px"></textarea>
+        <button class="btn" id="btnSavePrefs">Guardar</button>
       </div>
     </section>
 
@@ -196,6 +227,8 @@
         <div class="tile" onclick="openNotes()"><div class="ico">📒</div><div class="t">Apuntes</div><div class="n" id="tNotes"></div></div>
         <div class="tile" onclick="openPlanView()"><div class="ico">🗺️</div><div class="t">Mi plan</div><div class="n">tu camino</div></div>
         <div class="tile" onclick="show('v-reminder')"><div class="ico">🔔</div><div class="t">Recordatorio</div><div class="n" id="tRem">apagado</div></div>
+        <div class="tile" onclick="openPrefs()"><div class="ico">🎨</div><div class="t">Personalizar</div><div class="n">tu clase</div></div>
+        <div class="tile" onclick="openGuide(true)"><div class="ico">📖</div><div class="t">Cómo funciona</div><div class="n">guía</div></div>
       </div>
       <button class="btn ghost" style="margin-top:14px" onclick="show('v-settings')">⚙️ Ajustes</button>
     </section>
@@ -298,14 +331,16 @@
 "use strict";
 /* ===== Estado ===== */
 const LS = "claseIngles.v2";
-const DEFAULT = { key:"", name:"", goal:"", level:"", plan:null, history:[],
+const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, history:[],
   notes:[], goalsDone:{}, dailyGoal:5,
+  prefs:{style:[],styleMore:"",objective:""}, material:"", seenGuide:false,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" } };
 let S = migrate(load()) || structuredClone(DEFAULT);
 function load(){ try{return JSON.parse(localStorage.getItem(LS)) || JSON.parse(localStorage.getItem("claseIngles.v1"))}catch(e){return null} }
 function migrate(o){ if(!o) return null; return Object.assign(structuredClone(DEFAULT), o,
-  {stats:Object.assign(structuredClone(DEFAULT.stats),o.stats||{}), rem:Object.assign(structuredClone(DEFAULT.rem),o.rem||{})}); }
+  {stats:Object.assign(structuredClone(DEFAULT.stats),o.stats||{}), rem:Object.assign(structuredClone(DEFAULT.rem),o.rem||{}),
+   prefs:Object.assign(structuredClone(DEFAULT.prefs),o.prefs||{})}); }
 function save(){ localStorage.setItem(LS, JSON.stringify(S)); }
 
 /* ===== Fechas / racha ===== */
@@ -326,7 +361,7 @@ function bumpInter(){ const ti=todayInter(); ti.inter++; if(ti.inter>=S.dailyGoa
 function show(id){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-  const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan"].includes(id);
+  const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan","v-guide","v-prefs"].includes(id);
   document.getElementById("topbar").style.display = inApp ? "flex" : "none";
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
@@ -337,9 +372,20 @@ function show(id){
 document.getElementById("btnHome").onclick=()=>{ renderHome(); show("v-home"); };
 
 /* ===== Gemini ===== */
-const MODEL = "gemini-2.5-flash";
+async function pickModel(){
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(S.key)}`);
+  if(!r.ok){ throw new Error("models "+r.status+": "+(await r.text()).slice(0,120)); }
+  const j=await r.json();
+  const id=m=>m.name.replace(/^models\//,"");
+  const usable=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent") && !/embedding|aqa|imagen|vision|tts|thinking/i.test(m.name));
+  const rank=n=> n.includes("flash-latest")?0 : /2\.5-flash(?!-lite)/.test(n)?1 : /2\.0-flash(?!-lite)/.test(n)?2 : n.includes("flash-lite")?3 : n.includes("flash")?4 : n.includes("pro")?6 : 5;
+  usable.sort((a,b)=>rank(id(a))-rank(id(b)));
+  if(!usable.length) throw new Error("Esta clave no tiene modelos de texto disponibles.");
+  return id(usable[0]);
+}
 async function gemini(systemPrompt, contents, wantJson=false){
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(S.key)}`;
+  const model = S.model || "gemini-flash-latest";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.key)}`;
   const body={ system_instruction:{parts:[{text:systemPrompt}]}, contents,
     generationConfig: wantJson?{responseMimeType:"application/json",temperature:0.4}:{temperature:0.7} };
   const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
@@ -370,8 +416,8 @@ document.getElementById("btnSaveKey").onclick=async()=>{
   if(!k){ err.textContent="Pegá la clave primero."; err.style.display="block"; return; }
   const btn=document.getElementById("btnSaveKey"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Probando la clave…';
   S.key=k;
-  try{ await gemini("Sos un asistente.",[{role:"user",parts:[{text:"Responde solo: ok"}]}]); save(); routeAfterKey(); }
-  catch(e){ err.textContent="La clave no funcionó. Revisala. ("+e.message.slice(0,80)+")"; err.style.display="block"; S.key=""; }
+  try{ S.model=await pickModel(); await gemini("Sos un asistente.",[{role:"user",parts:[{text:"Responde solo: ok"}]}]); save(); routeAfterKey(); }
+  catch(e){ err.textContent="La clave no funcionó. Revisala. ("+e.message.slice(0,80)+")"; err.style.display="block"; S.key=""; S.model=""; }
   finally{ btn.disabled=false; btn.textContent="Guardar y empezar"; }
 };
 
@@ -379,7 +425,7 @@ document.getElementById("btnSaveKey").onclick=async()=>{
 document.getElementById("btnProfile").onclick=()=>{
   const n=document.getElementById("uname").value.trim();
   if(!n){ document.getElementById("uname").focus(); return; }
-  S.name=n; S.goal=document.getElementById("ugoal").value.trim(); save(); startTest();
+  S.name=n; S.goal=document.getElementById("ugoal").value.trim(); save(); openGuide(false);
 };
 
 /* ===== TEST ===== */
@@ -455,6 +501,42 @@ function renderPlan(d){
   if(d.plan?.length){ h+=`<label>🗺️ Tu plan</label>`+d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${p}</div>`).join(""); }
   document.getElementById("planBody").innerHTML=h; show("v-plan");
 }
+document.getElementById("btnPlanNext").onclick=()=>openPrefs();
+
+/* ===== GUIA ===== */
+function openGuide(fromHome){
+  const btn=document.getElementById("btnGuideNext");
+  if(fromHome){ btn.textContent="Volver al inicio"; btn.onclick=()=>{ renderHome(); show("v-home"); }; }
+  else { btn.textContent="Empezar el test 📝"; btn.onclick=()=>{ S.seenGuide=true; save(); startTest(); }; }
+  show("v-guide");
+}
+
+/* ===== PERSONALIZAR ===== */
+const STYLE_OPTS=["Más conversación","Más ejercicios","Bien de a poco","Con juegos","Corregir todo detallado","Enfocada en pronunciación","Vocabulario del día a día","Sobre viajes","Sobre familia"];
+function renderStyleChips(){
+  const box=document.getElementById("styleChips"); box.innerHTML="";
+  STYLE_OPTS.forEach(opt=>{
+    const on=S.prefs.style.includes(opt);
+    const b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=(on?"✓ ":"")+opt;
+    b.style.cssText="cursor:pointer;border:2px solid "+(on?"var(--brand)":"var(--line)")+";background:"+(on?"#eef6f4":"#fff")+";font-size:16px;padding:10px 14px";
+    b.onclick=()=>{ const i=S.prefs.style.indexOf(opt); if(i>=0) S.prefs.style.splice(i,1); else S.prefs.style.push(opt); renderStyleChips(); };
+    box.appendChild(b);
+  });
+}
+function openPrefs(){
+  renderStyleChips();
+  document.getElementById("prefMore").value=S.prefs.styleMore||"";
+  document.getElementById("prefObj").value=S.prefs.objective||S.goal||"";
+  document.getElementById("prefMat").value=S.material||"";
+  show("v-prefs");
+}
+document.getElementById("btnSavePrefs").onclick=()=>{
+  S.prefs.styleMore=document.getElementById("prefMore").value.trim();
+  S.prefs.objective=document.getElementById("prefObj").value.trim();
+  S.material=document.getElementById("prefMat").value.trim();
+  save();
+  renderHome(); show("v-home");
+};
 
 /* ===== HOME ===== */
 function renderHome(){
@@ -476,8 +558,14 @@ function renderHome(){
 
 /* ===== CLASE ===== */
 function teacherSystem(){
+  const p=S.prefs||{};
+  const estilo=(p.style&&p.style.length)?`Estilo que prefiere la alumna: ${p.style.join(", ")}.`:"";
+  const mas=p.styleMore?`Pedido extra sobre las clases: ${p.styleMore}.`:"";
+  const obj=p.objective?`Lo que quiere lograr: ${p.objective}.`:"";
+  const mat=S.material?`\nMATERIAL QUE APORTÓ LA ALUMNA (canciones, textos, vocabulario o temas propios). Usalo como base para ejemplos, lecturas y ejercicios cuando venga bien, adaptándolo a su nivel:\n"""${S.material.slice(0,4000)}"""\n`:"";
   return `Sos "Miss Clara", profesora de inglés paciente, cálida y profesional, que le da clases particulares a ${S.name}, persona mayor hispanohablante de nivel ${S.level} (MCER).
 Objetivo de ${S.name}: ${S.goal||"aprender inglés general"}. Tema inicial sugerido: ${S.plan?.firstLessonTopic||"Saludos"}.
+PREFERENCIAS DE LA ALUMNA (respetalas): ${estilo} ${mas} ${obj}${mat}
 REGLAS:
 1. Clase real: un concepto por vez, sin abrumar.
 2. Adaptá el inglés al nivel ${S.level}: en A1/A2 frases muy simples y traducí al español entre paréntesis; en B1+ más inglés y menos español.
@@ -523,7 +611,6 @@ function startClass(){
   else{ document.getElementById("chat").innerHTML=""; S.history.forEach(m=>addMsg(m.role==="teacher"?"teacher":"user",m.text)); }
 }
 function quickSend(t){ sendToTeacher(t); }
-document.getElementById("btnStartClass").onclick=startClass;
 document.getElementById("btnTodayClass").onclick=startClass;
 
 let classRecog=null,classRec=false;
