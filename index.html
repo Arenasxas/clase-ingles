@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#2f7d6f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>Mi Clase de Inglés</title>
 <style>
   :root{
@@ -17,10 +21,12 @@
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     font-size:20px;line-height:1.5}
   .app{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-  header.bar{display:flex;align-items:center;gap:10px;padding:14px 16px;
+  header.bar{display:flex;align-items:center;gap:8px;padding:14px 14px;
     background:var(--brand);color:#fff;position:sticky;top:0;z-index:10}
-  header.bar h1{font-size:20px;margin:0;font-weight:700;flex:1}
-  header.bar .lvl{background:rgba(255,255,255,.2);padding:4px 10px;border-radius:999px;font-size:15px}
+  header.bar h1{font-size:19px;margin:0;font-weight:700;flex:1;text-align:center}
+  header.bar .lvl{background:rgba(255,255,255,.2);padding:4px 10px;border-radius:999px;font-size:14px}
+  header.bar button{background:rgba(255,255,255,.15);border:none;color:#fff;width:42px;height:42px;
+    border-radius:12px;font-size:20px;cursor:pointer;flex:0 0 auto}
   main{flex:1;padding:18px 16px 40px}
   .view{display:none;animation:fade .25s ease}
   .view.active{display:block}
@@ -28,9 +34,10 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
     padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
   h2{font-size:26px;margin:0 0 8px;line-height:1.25}
+  h3{font-size:20px;margin:0 0 10px}
   p.sub{color:var(--muted);margin:0 0 18px}
   label{display:block;font-weight:600;margin:14px 0 6px}
-  input[type=text],input[type=password],textarea,select{
+  input[type=text],input[type=password],input[type=time],input[type=number],textarea,select{
     width:100%;padding:14px;border:2px solid var(--line);border-radius:14px;
     font-size:19px;font-family:inherit;background:#fff;color:var(--ink)}
   input:focus,textarea:focus{outline:none;border-color:var(--brand)}
@@ -42,17 +49,14 @@
   .btn:active{transform:scale(.98)}
   .btn.sec{background:#fff;color:var(--brand);border:2px solid var(--brand);box-shadow:none}
   .btn.ghost{background:transparent;color:var(--muted);box-shadow:none;border:none;font-weight:600;font-size:17px}
-  .btn.small{padding:12px 14px;font-size:16px;width:auto}
+  .btn.big{padding:22px;font-size:22px}
   .btn:disabled{opacity:.5}
   .opt{display:block;width:100%;text-align:left;padding:16px 18px;margin:10px 0;
-    border:2px solid var(--line);border-radius:16px;background:#fff;font-size:19px;
-    cursor:pointer;transition:all .12s}
+    border:2px solid var(--line);border-radius:16px;background:#fff;font-size:19px;cursor:pointer;transition:all .12s}
   .opt:active{transform:scale(.99)}
   .opt.sel{border-color:var(--brand);background:#eef6f4}
-  .opt.correct{border-color:var(--ok);background:#e7f3ef}
-  .opt.wrong{border-color:var(--err);background:#fbece7}
-  .progress{height:10px;background:var(--line);border-radius:999px;overflow:hidden;margin-bottom:18px}
-  .progress > i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+  .progress{height:12px;background:var(--line);border-radius:999px;overflow:hidden;margin:6px 0 4px}
+  .progress > i{display:block;height:100%;background:var(--accent);width:0;transition:width .4s}
   .chip{display:inline-block;background:#eef6f4;color:var(--brand-dark);
     padding:6px 12px;border-radius:999px;font-size:15px;margin:4px 6px 4px 0;font-weight:600}
   .chat{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
@@ -60,9 +64,7 @@
   .msg.t{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:6px}
   .msg.u{background:var(--brand);color:#fff;align-self:flex-end;border-bottom-right-radius:6px}
   .msg .sayen{cursor:pointer;color:var(--brand);font-size:15px;font-weight:700;margin-top:8px;display:inline-flex;gap:6px;align-items:center}
-  .msg.u .sayen{color:#dff1ec}
-  .dock{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 22%);
-    padding:10px 0 12px}
+  .dock{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 22%);padding:10px 0 12px}
   .quick{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
   .quick::-webkit-scrollbar{display:none}
   .quick .btn{width:auto;white-space:nowrap;padding:10px 14px;font-size:15px;margin:0;background:#fff;color:var(--brand-dark);border:1px solid var(--line);box-shadow:none}
@@ -74,38 +76,56 @@
   .typerow{flex:1;display:flex;gap:8px}
   .typerow input{flex:1}
   .send{flex:0 0 auto;width:56px;padding:0;font-size:22px}
-  .note{background:#fffdf5;border:1px solid #f0e4c4;border-left:6px solid var(--accent);
-    border-radius:12px;padding:14px 16px;margin:10px 0}
-  .note b{color:var(--brand-dark)}
+  .note{background:#fffdf5;border:1px solid #f0e4c4;border-left:6px solid var(--accent);border-radius:12px;padding:14px 16px;margin:10px 0}
   .hint{font-size:15px;color:var(--muted);margin-top:8px}
   .center{text-align:center}
-  .spin{display:inline-block;width:22px;height:22px;border:3px solid rgba(255,255,255,.4);
-    border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+  .spin{display:inline-block;width:22px;height:22px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
   .spin.dark{border-color:rgba(47,125,111,.25);border-top-color:var(--brand)}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .row{display:flex;gap:10px}
-  .row>*{flex:1}
-  a.link{color:var(--brand);font-weight:600}
   .typing{align-self:flex-start;color:var(--muted);font-style:italic;padding:6px 4px}
+  /* dashboard */
+  .hello{font-size:28px;font-weight:800;margin:2px 0 2px}
+  .streak{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#2f7d6f,#245f55);color:#fff;border-radius:var(--r);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px}
+  .streak .big{font-size:44px;font-weight:800;line-height:1}
+  .streak small{opacity:.85;font-size:15px}
+  .goal .progress{background:rgba(255,255,255,.25)}
+  .goal .progress>i{background:#ffdf9e}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 16px;text-align:center;cursor:pointer;box-shadow:var(--shadow);transition:transform .06s}
+  .tile:active{transform:scale(.98)}
+  .tile .ico{font-size:30px}
+  .tile .t{font-weight:700;margin-top:6px;font-size:17px}
+  .tile .n{color:var(--muted);font-size:14px}
+  .checkline{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .checkline:last-child{border-bottom:none}
+  .checkbox{flex:0 0 auto;width:30px;height:30px;border-radius:9px;border:2px solid var(--brand);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
+  .checkbox.on{background:var(--brand)}
+  .switch{position:relative;width:58px;height:32px;flex:0 0 auto}
+  .switch input{display:none}
+  .switch .track{position:absolute;inset:0;background:var(--line);border-radius:999px;transition:.2s}
+  .switch .knob{position:absolute;top:3px;left:3px;width:26px;height:26px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .switch input:checked + .track{background:var(--brand)}
+  .switch input:checked + .track + .knob{left:29px}
+  .rowbtw{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="bar" id="topbar" style="display:none">
-    <button class="btn ghost" style="color:#fff;width:auto;padding:6px;margin:0;font-size:22px" onclick="goHome()">☰</button>
+    <button id="btnHome" title="Inicio">🏠</button>
     <h1 id="topTitle">Mi Clase de Inglés</h1>
     <span class="lvl" id="topLvl"></span>
   </header>
 
   <main>
-    <!-- SETUP: clave Gemini -->
+    <!-- SETUP -->
     <section class="view" id="v-setup">
       <div class="card">
         <h2>Bienvenida 👋</h2>
-        <p class="sub">Para que la clase funcione, pegá una vez la clave de Gemini. Queda guardada en este dispositivo, no se comparte.</p>
+        <p class="sub">Para que la clase funcione, pegá una vez la clave de Gemini. Queda guardada solo en este dispositivo.</p>
         <label for="apiKey">Clave de Gemini (API key)</label>
         <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off">
-        <p class="hint">La generás gratis en <b>aistudio.google.com/apikey</b>. Esto lo hace el nieto una sola vez.</p>
+        <p class="hint">Se genera gratis en <b>aistudio.google.com/apikey</b>. Esto lo hace el nieto una sola vez; la abuela no la toca.</p>
         <button class="btn" id="btnSaveKey">Guardar y empezar</button>
         <p class="hint" id="keyErr" style="color:var(--err);display:none"></p>
       </div>
@@ -134,10 +154,10 @@
       </div>
     </section>
 
-    <!-- EVALUANDO -->
+    <!-- EVAL -->
     <section class="view" id="v-eval">
       <div class="card center">
-        <h2>Estoy corrigiendo tu test… 📝</h2>
+        <h2>Corrigiendo tu test… 📝</h2>
         <p class="sub">Un momento, preparo tu plan personalizado.</p>
         <div class="spin dark" style="width:40px;height:40px;border-width:5px"></div>
       </div>
@@ -154,6 +174,32 @@
       </div>
     </section>
 
+    <!-- HOME / DASHBOARD -->
+    <section class="view" id="v-home">
+      <p class="hello" id="homeHi"></p>
+      <p class="sub" id="homeDay" style="margin-top:-4px"></p>
+      <div class="streak">
+        <div class="big" id="streakNum">🔥 0</div>
+        <div>
+          <div style="font-weight:700" id="streakTxt">días seguidos</div>
+          <small id="streakSub">Empezá hoy tu racha</small>
+        </div>
+      </div>
+      <div class="card goal">
+        <div class="rowbtw"><h3 style="margin:0">🎯 Meta de hoy</h3><span class="chip" id="goalChip"></span></div>
+        <div class="progress"><i id="goalBar"></i></div>
+        <p class="hint" id="goalHint"></p>
+      </div>
+      <button class="btn big" id="btnTodayClass">🎓 Clase de hoy</button>
+      <div class="grid" style="margin-top:16px">
+        <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
+        <div class="tile" onclick="openNotes()"><div class="ico">📒</div><div class="t">Apuntes</div><div class="n" id="tNotes"></div></div>
+        <div class="tile" onclick="openPlanView()"><div class="ico">🗺️</div><div class="t">Mi plan</div><div class="n">tu camino</div></div>
+        <div class="tile" onclick="show('v-reminder')"><div class="ico">🔔</div><div class="t">Recordatorio</div><div class="n" id="tRem">apagado</div></div>
+      </div>
+      <button class="btn ghost" style="margin-top:14px" onclick="show('v-settings')">⚙️ Ajustes</button>
+    </section>
+
     <!-- CLASE -->
     <section class="view" id="v-class">
       <div class="chat" id="chat"></div>
@@ -163,6 +209,7 @@
           <button class="btn" onclick="quickSend('Explicame eso en español, por favor')">🇦🇷 En español</button>
           <button class="btn" onclick="quickSend('¿Podés repetir más despacio?')">🐢 Más despacio</button>
           <button class="btn" onclick="quickSend('Dame una palabra nueva de vocabulario con ejemplo')">📚 Palabra nueva</button>
+          <button class="btn" onclick="quickSend('Terminemos la clase de hoy con un resumen de lo que aprendí')">✅ Terminar</button>
         </div>
         <div class="microw">
           <button class="mic" id="micBtn" title="Hablar en inglés">🎤</button>
@@ -175,18 +222,73 @@
       </div>
     </section>
 
-    <!-- MENU -->
-    <section class="view" id="v-menu">
+    <!-- METAS -->
+    <section class="view" id="v-goals">
       <div class="card">
-        <h2>Menú</h2>
-        <button class="btn sec" onclick="show('v-class')">↩️ Volver a la clase</button>
-        <button class="btn sec" id="btnNotes">📒 Mis apuntes</button>
-        <button class="btn sec" id="btnReplan">🔄 Rehacer test de nivel</button>
-        <button class="btn ghost" id="btnReset">🗑️ Borrar todo y empezar de cero</button>
+        <h2>🏆 Mis metas</h2>
+        <p class="sub">Marcá lo que vas logrando. Sin apuro.</p>
+        <div id="goalsList"></div>
       </div>
-      <div class="card" id="notesCard" style="display:none">
+      <div class="card">
+        <h3>📊 Tu progreso</h3>
+        <div class="grid">
+          <div class="tile" style="cursor:default"><div class="ico">🔥</div><div class="t" id="pStreak">0</div><div class="n">mejor racha</div></div>
+          <div class="tile" style="cursor:default"><div class="ico">📅</div><div class="t" id="pDays">0</div><div class="n">días practicados</div></div>
+          <div class="tile" style="cursor:default"><div class="ico">🎓</div><div class="t" id="pClasses">0</div><div class="n">clases hechas</div></div>
+          <div class="tile" style="cursor:default"><div class="ico">📒</div><div class="t" id="pNotes">0</div><div class="n">apuntes</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- APUNTES -->
+    <section class="view" id="v-notes">
+      <div class="card">
         <h2>📒 Mis apuntes</h2>
+        <p class="sub">Lo importante que te enseña Miss Clara se guarda solo acá.</p>
         <div id="notesBody"></div>
+      </div>
+    </section>
+
+    <!-- PLAN VIEW -->
+    <section class="view" id="v-planview">
+      <div class="card">
+        <h2>🗺️ Mi plan</h2>
+        <div class="center"><span class="chip" id="pvLvl" style="font-size:18px;padding:8px 16px"></span></div>
+        <div id="pvBody" style="margin-top:14px"></div>
+      </div>
+    </section>
+
+    <!-- RECORDATORIO -->
+    <section class="view" id="v-reminder">
+      <div class="card">
+        <h2>🔔 Recordatorio diario</h2>
+        <p class="sub">Un avisito para no dejar la clase.</p>
+        <div class="rowbtw">
+          <span style="font-weight:600">Activar recordatorio</span>
+          <label class="switch"><input type="checkbox" id="remOn"><span class="track"></span><span class="knob"></span></label>
+        </div>
+        <label for="remTime">¿A qué hora te aviso?</label>
+        <input type="time" id="remTime" value="10:00">
+        <button class="btn" id="btnSaveRem">Guardar recordatorio</button>
+        <p class="hint" id="remStatus"></p>
+        <div class="note" style="margin-top:16px">
+          <b>Ojo:</b> el aviso funciona con la app instalada en la pantalla de inicio y el celu prendido. Para un recordatorio 100% seguro, poné también una alarma en el reloj del celular a la misma hora.
+        </div>
+      </div>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="view" id="v-settings">
+      <div class="card">
+        <h2>⚙️ Ajustes</h2>
+        <label for="setGoal">Meta diaria (respuestas en la clase)</label>
+        <input type="number" id="setGoal" min="1" max="50" value="5">
+        <button class="btn sec" id="btnSaveGoal">Guardar meta</button>
+      </div>
+      <div class="card">
+        <button class="btn sec" id="btnReplan">🔄 Rehacer test de nivel</button>
+        <button class="btn sec" id="btnChangeKey">🔑 Cambiar clave de Gemini</button>
+        <button class="btn ghost" id="btnReset" style="color:var(--err)">🗑️ Borrar todo y empezar de cero</button>
       </div>
     </section>
   </main>
@@ -194,330 +296,334 @@
 
 <script>
 "use strict";
-/* ================= Estado ================= */
-const LS = "claseIngles.v1";
-let S = load() || { key:"", name:"", goal:"", level:"", plan:null, history:[], notes:[] };
-function load(){ try{return JSON.parse(localStorage.getItem(LS))}catch(e){return null} }
+/* ===== Estado ===== */
+const LS = "claseIngles.v2";
+const DEFAULT = { key:"", name:"", goal:"", level:"", plan:null, history:[],
+  notes:[], goalsDone:{}, dailyGoal:5,
+  stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
+  rem:{ on:false, time:"10:00", firedDay:"" } };
+let S = migrate(load()) || structuredClone(DEFAULT);
+function load(){ try{return JSON.parse(localStorage.getItem(LS)) || JSON.parse(localStorage.getItem("claseIngles.v1"))}catch(e){return null} }
+function migrate(o){ if(!o) return null; return Object.assign(structuredClone(DEFAULT), o,
+  {stats:Object.assign(structuredClone(DEFAULT.stats),o.stats||{}), rem:Object.assign(structuredClone(DEFAULT.rem),o.rem||{})}); }
 function save(){ localStorage.setItem(LS, JSON.stringify(S)); }
 
-/* ================= Router ================= */
+/* ===== Fechas / racha ===== */
+function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function daysBetween(a,b){ return Math.round((new Date(b)-new Date(a))/86400000); }
+function markPracticed(){
+  const t=today(); const st=S.stats;
+  if(st.lastDay===t) return;
+  if(st.lastDay && daysBetween(st.lastDay,t)===1) st.streak++; else st.streak=1;
+  st.lastDay=t; if(!st.days.includes(t)) st.days.push(t);
+  if(st.streak>st.best) st.best=st.streak;
+  st.classes++; save();
+}
+function todayInter(){ const st=S.stats; if(st.today.day!==today()){ st.today={day:today(),inter:0}; } return st.today; }
+function bumpInter(){ const ti=todayInter(); ti.inter++; if(ti.inter>=S.dailyGoal) markPracticed(); save(); }
+
+/* ===== Router ===== */
 function show(id){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-  const bar = document.getElementById("topbar");
-  const inApp = ["v-class","v-menu","v-plan"].includes(id);
-  bar.style.display = inApp ? "flex" : "none";
+  const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan"].includes(id);
+  document.getElementById("topbar").style.display = inApp ? "flex" : "none";
   document.getElementById("topLvl").textContent = S.level || "";
+  const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
+    "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes" };
+  document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
-function goHome(){ show("v-menu"); document.getElementById("notesCard").style.display="none"; }
+document.getElementById("btnHome").onclick=()=>{ renderHome(); show("v-home"); };
 
-/* ================= Gemini ================= */
+/* ===== Gemini ===== */
 const MODEL = "gemini-2.5-flash";
 async function gemini(systemPrompt, contents, wantJson=false){
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(S.key)}`;
-  const body = {
-    system_instruction:{ parts:[{text:systemPrompt}] },
-    contents,
-    generationConfig: wantJson ? {responseMimeType:"application/json", temperature:0.4} : {temperature:0.7}
-  };
-  const r = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const body={ system_instruction:{parts:[{text:systemPrompt}]}, contents,
+    generationConfig: wantJson?{responseMimeType:"application/json",temperature:0.4}:{temperature:0.7} };
+  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(!r.ok){ const t=await r.text(); throw new Error("Gemini "+r.status+": "+t.slice(0,200)); }
-  const j = await r.json();
-  const txt = j?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("") || "";
-  return txt;
+  const j=await r.json();
+  return j?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("")||"";
 }
 
-/* ================= Voz ================= */
+/* ===== Voz ===== */
 let voices=[];
-function loadVoices(){ voices = speechSynthesis.getVoices(); }
+function loadVoices(){ voices=speechSynthesis.getVoices(); }
 if("speechSynthesis" in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
-function speak(text, lang="en-US"){
+function speak(text,lang="en-US"){
   if(!("speechSynthesis" in window)) return;
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang;
-  const v = voices.find(v=>v.lang===lang) || voices.find(v=>v.lang.startsWith(lang.slice(0,2)));
-  if(v) u.voice=v;
-  u.rate = lang.startsWith("en") ? 0.9 : 1;
+  const u=new SpeechSynthesisUtterance(text); u.lang=lang;
+  const v=voices.find(v=>v.lang===lang)||voices.find(v=>v.lang.startsWith(lang.slice(0,2)));
+  if(v) u.voice=v; u.rate=lang.startsWith("en")?0.9:1;
   speechSynthesis.speak(u);
 }
-// Recognition
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recog=null, recording=false;
-function initRecog(){
-  if(!SR) return null;
-  const r = new SR();
-  r.lang="en-US"; r.interimResults=false; r.maxAlternatives=1; r.continuous=false;
-  return r;
-}
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function initRecog(){ if(!SR) return null; const r=new SR(); r.lang="en-US"; r.interimResults=false; r.maxAlternatives=1; r.continuous=false; return r; }
 
-/* ================= SETUP ================= */
-document.getElementById("btnSaveKey").onclick = async ()=>{
-  const k = document.getElementById("apiKey").value.trim();
-  const err = document.getElementById("keyErr");
+/* ===== SETUP ===== */
+document.getElementById("btnSaveKey").onclick=async()=>{
+  const k=document.getElementById("apiKey").value.trim();
+  const err=document.getElementById("keyErr");
   if(!k){ err.textContent="Pegá la clave primero."; err.style.display="block"; return; }
-  const btn = document.getElementById("btnSaveKey");
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span> Probando la clave…';
+  const btn=document.getElementById("btnSaveKey"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Probando la clave…';
   S.key=k;
-  try{
-    await gemini("Sos un asistente.", [{role:"user",parts:[{text:"Responde solo: ok"}]}]);
-    save();
-    routeAfterKey();
-  }catch(e){
-    err.textContent="La clave no funcionó. Revisala. ("+e.message.slice(0,80)+")";
-    err.style.display="block"; S.key="";
-  }finally{ btn.disabled=false; btn.textContent="Guardar y empezar"; }
+  try{ await gemini("Sos un asistente.",[{role:"user",parts:[{text:"Responde solo: ok"}]}]); save(); routeAfterKey(); }
+  catch(e){ err.textContent="La clave no funcionó. Revisala. ("+e.message.slice(0,80)+")"; err.style.display="block"; S.key=""; }
+  finally{ btn.disabled=false; btn.textContent="Guardar y empezar"; }
 };
 
-/* ================= PERFIL ================= */
-document.getElementById("btnProfile").onclick = ()=>{
-  const n = document.getElementById("uname").value.trim();
+/* ===== PERFIL ===== */
+document.getElementById("btnProfile").onclick=()=>{
+  const n=document.getElementById("uname").value.trim();
   if(!n){ document.getElementById("uname").focus(); return; }
-  S.name=n; S.goal=document.getElementById("ugoal").value.trim(); save();
-  startTest();
+  S.name=n; S.goal=document.getElementById("ugoal").value.trim(); save(); startTest();
 };
 
-/* ================= TEST DE NIVEL ================= */
-const QUESTIONS = [
-  {q:"Hello, ___ name is Ana.", o:["my","your","his"], a:0, lvl:1},
-  {q:"She ___ a teacher.", o:["am","is","are"], a:1, lvl:1},
-  {q:"I ___ coffee every morning.", o:["drinks","drinking","drink"], a:2, lvl:1},
-  {q:"They ___ to the park yesterday.", o:["go","went","going"], a:1, lvl:2},
-  {q:"There ___ two books on the table.", o:["is","are","am"], a:1, lvl:2},
-  {q:"I have lived here ___ 2010.", o:["for","since","from"], a:1, lvl:3},
-  {q:"If it rains, we ___ stay home.", o:["will","would","are"], a:0, lvl:3},
-  {q:"He said he ___ very tired.", o:["is","was","are"], a:1, lvl:4},
-  {q:"By next year, she ___ graduated.", o:["will","has","will have"], a:2, lvl:5},
-  {q:"I wish I ___ more time.", o:["have","had","has"], a:1, lvl:5},
+/* ===== TEST ===== */
+const QUESTIONS=[
+  {q:"Hello, ___ name is Ana.",o:["my","your","his"],a:0,lvl:1},
+  {q:"She ___ a teacher.",o:["am","is","are"],a:1,lvl:1},
+  {q:"I ___ coffee every morning.",o:["drinks","drinking","drink"],a:2,lvl:1},
+  {q:"They ___ to the park yesterday.",o:["go","went","going"],a:1,lvl:2},
+  {q:"There ___ two books on the table.",o:["is","are","am"],a:1,lvl:2},
+  {q:"I have lived here ___ 2010.",o:["for","since","from"],a:1,lvl:3},
+  {q:"If it rains, we ___ stay home.",o:["will","would","are"],a:0,lvl:3},
+  {q:"He said he ___ very tired.",o:["is","was","are"],a:1,lvl:4},
+  {q:"By next year, she ___ graduated.",o:["will","has","will have"],a:2,lvl:5},
+  {q:"I wish I ___ more time.",o:["have","had","has"],a:1,lvl:5},
 ];
-let qi=0, answers=[];
+let qi=0,answers=[];
 function startTest(){ qi=0; answers=[]; show("v-test"); renderQ(); }
 function renderQ(){
-  const t = QUESTIONS[qi];
-  document.getElementById("testBar").style.width = (qi/(QUESTIONS.length+1)*100)+"%";
-  document.getElementById("qTitle").textContent = `Pregunta ${qi+1} de ${QUESTIONS.length}`;
-  document.getElementById("qSub").innerHTML = "Elegí la palabra correcta:<br><b style='color:var(--ink);font-size:22px'>"+t.q+"</b>";
-  const box = document.getElementById("qBox"); box.innerHTML="";
-  t.o.forEach((opt,i)=>{
-    const b=document.createElement("button"); b.className="opt"; b.textContent=opt;
-    b.onclick=()=>{ answers.push({lvl:t.lvl, correct:i===t.a}); qi++;
-      if(qi<QUESTIONS.length) renderQ(); else openQuestion(); };
-    box.appendChild(b);
-  });
+  const t=QUESTIONS[qi];
+  document.getElementById("testBar").style.width=(qi/(QUESTIONS.length+1)*100)+"%";
+  document.getElementById("qTitle").textContent=`Pregunta ${qi+1} de ${QUESTIONS.length}`;
+  document.getElementById("qSub").innerHTML="Elegí la palabra correcta:<br><b style='color:var(--ink);font-size:22px'>"+t.q+"</b>";
+  const box=document.getElementById("qBox"); box.innerHTML="";
+  t.o.forEach((opt,i)=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=opt;
+    b.onclick=()=>{ answers.push({lvl:t.lvl,correct:i===t.a}); qi++; if(qi<QUESTIONS.length) renderQ(); else openQuestion(); };
+    box.appendChild(b); });
 }
 function openQuestion(){
-  document.getElementById("testBar").style.width = (QUESTIONS.length/(QUESTIONS.length+1)*100)+"%";
-  document.getElementById("qTitle").textContent = "Última parte 🗣️";
-  document.getElementById("qSub").innerHTML = "Contame en <b>inglés</b> qué hiciste ayer. Podés escribir o hablar. Si no sabés, escribí lo que puedas (no importa si tiene errores).";
+  document.getElementById("testBar").style.width=(QUESTIONS.length/(QUESTIONS.length+1)*100)+"%";
+  document.getElementById("qTitle").textContent="Última parte 🗣️";
+  document.getElementById("qSub").innerHTML="Contame en <b>inglés</b> qué hiciste ayer. Podés escribir o hablar. No importa si tiene errores.";
   const box=document.getElementById("qBox"); box.innerHTML="";
   const ta=document.createElement("textarea"); ta.id="openAns"; ta.placeholder="Yesterday I ..."; box.appendChild(ta);
-  if(SR){
-    const mic=document.createElement("button"); mic.className="btn sec"; mic.innerHTML="🎤 Hablar en inglés";
-    let rec=false, r=initRecog();
-    mic.onclick=()=>{ if(!r) return;
-      if(rec){ r.stop(); return; }
+  if(SR){ const mic=document.createElement("button"); mic.className="btn sec"; mic.innerHTML="🎤 Hablar en inglés";
+    let rec=false,r=initRecog();
+    mic.onclick=()=>{ if(!r) return; if(rec){ r.stop(); return; }
       rec=true; mic.innerHTML="⏹️ Detener (grabando…)"; mic.classList.add("rec");
       r.onresult=e=>{ ta.value=(ta.value?ta.value+" ":"")+e.results[0][0].transcript; };
       r.onend=()=>{ rec=false; mic.innerHTML="🎤 Hablar en inglés"; mic.classList.remove("rec"); };
       r.onerror=()=>{ rec=false; mic.innerHTML="🎤 Hablar en inglés"; mic.classList.remove("rec"); };
-      try{r.start()}catch(e){}
-    };
-    box.appendChild(mic);
-  }
+      try{r.start()}catch(e){} };
+    box.appendChild(mic); }
   const go=document.createElement("button"); go.className="btn"; go.textContent="Ver mi resultado";
   go.onclick=()=>evaluate(ta.value.trim()); box.appendChild(go);
 }
-
-function scoreLevel(){
-  // puntaje por nivel de las correctas
-  let hi=0, pts=0;
-  answers.forEach(a=>{ if(a.correct){ pts++; if(a.lvl>hi) hi=a.lvl; } });
-  if(pts<=2) return "A1";
-  if(pts<=4) return "A2";
-  if(pts<=6) return "B1";
-  if(pts<=8) return "B2";
-  return "C1";
-}
-
+function scoreLevel(){ let pts=0; answers.forEach(a=>{ if(a.correct) pts++; });
+  if(pts<=2) return "A1"; if(pts<=4) return "A2"; if(pts<=6) return "B1"; if(pts<=8) return "B2"; return "C1"; }
 async function evaluate(openText){
   show("v-eval");
-  const rough = scoreLevel();
-  const correctas = answers.filter(a=>a.correct).length;
-  const sys = `Sos un evaluador experto de inglés (marco MCER/CEFR). Determinás el nivel real de un adulto mayor hispanohablante que recién empieza o retoma inglés. Sos amable y realista. Respondés SIEMPRE en JSON válido.`;
-  const prompt = `Datos del test:
-- Respuestas correctas de opción múltiple: ${correctas} de ${QUESTIONS.length}.
+  const rough=scoreLevel(); const correctas=answers.filter(a=>a.correct).length;
+  const sys=`Sos un evaluador experto de inglés (marco MCER/CEFR) para un adulto mayor hispanohablante que recién empieza o retoma. Amable y realista. Respondés SIEMPRE en JSON válido.`;
+  const prompt=`Datos del test:
+- Correctas de opción múltiple: ${correctas} de ${QUESTIONS.length}.
 - Nivel estimado por puntaje: ${rough}.
-- Texto libre que escribió en inglés (contando qué hizo ayer): """${openText||"(no escribió nada)"}"""
+- Texto libre en inglés: """${openText||"(no escribió nada)"}"""
 - Nombre: ${S.name}. Objetivo: ${S.goal||"aprender inglés general"}.
-
-Devolvé un JSON con esta forma exacta:
-{
- "level": "A1|A2|B1|B2|C1",
- "levelName": "nombre corto en español, ej: Principiante",
- "summary": "2-3 oraciones cálidas en español explicando en qué punto está y qué sabe/le falta",
- "goals": ["3 objetivos concretos y alcanzables en español"],
- "plan": ["4 a 6 pasos de un plan de estudio en español, ordenados de fácil a difícil, cortos"],
- "firstLessonTopic": "tema de la primera clase, ej: Saludos y presentarse"
+Devolvé JSON exacto:
+{"level":"A1|A2|B1|B2|C1","levelName":"nombre corto en español","summary":"2-3 oraciones cálidas en español","goals":["4 metas concretas y alcanzables en español"],"plan":["5 a 6 pasos de plan en español, fácil a difícil, cortos"],"firstLessonTopic":"tema de la primera clase"}
+Ajustá el nivel con el texto libre.`;
+  try{ const raw=await gemini(sys,[{role:"user",parts:[{text:prompt}]}],true); const data=JSON.parse(raw);
+    S.level=data.level||rough; S.plan=data; S.goalsDone={}; save(); renderPlan(data); }
+  catch(e){ const data={level:rough,levelName:"Tu nivel",summary:"Arrancamos desde tu nivel actual. Vamos de a poco, sin apuro.",
+    goals:["Entender frases simples","Presentarte en inglés","Sumar 10 palabras nuevas por semana","Sostener una charla corta"],
+    plan:["Saludos y presentarte","Números y objetos de la casa","Verbos del día a día","Hacer preguntas simples","Hablar en pasado"],
+    firstLessonTopic:"Saludos y presentarse"};
+    S.level=rough; S.plan=data; S.goalsDone={}; save(); renderPlan(data); }
 }
-Ajustá el nivel usando el texto libre: si escribió bien y con estructuras complejas, subí; si casi no pudo, bajá.`;
-  try{
-    const raw = await gemini(sys, [{role:"user",parts:[{text:prompt}]}], true);
-    const data = JSON.parse(raw);
-    S.level = data.level || rough;
-    S.plan = data;
-    save(); renderPlan(data);
-  }catch(e){
-    // fallback sin IA
-    const data = { level:rough, levelName:"Tu nivel", summary:"Arrancamos desde tu nivel actual. Vamos a ir de a poco, sin apuro.",
-      goals:["Entender frases simples","Presentarte en inglés","Sumar 10 palabras nuevas por semana"],
-      plan:["Saludos y presentarte","Números y objetos de la casa","Verbos del día a día","Hacer preguntas simples"],
-      firstLessonTopic:"Saludos y presentarse" };
-    S.level=rough; S.plan=data; save(); renderPlan(data);
-  }
-}
-
 function renderPlan(d){
-  document.getElementById("planHi").textContent = `¡Muy bien, ${S.name}! 🌟`;
-  document.getElementById("planLvl").textContent = `Nivel ${d.level} · ${d.levelName||""}`;
-  let h = `<p>${d.summary||""}</p>`;
-  if(d.goals?.length){ h+=`<label>🎯 Tus objetivos</label><div>`+d.goals.map(g=>`<div class="note">${g}</div>`).join("")+`</div>`; }
+  document.getElementById("planHi").textContent=`¡Muy bien, ${S.name}! 🌟`;
+  document.getElementById("planLvl").textContent=`Nivel ${d.level} · ${d.levelName||""}`;
+  let h=`<p>${d.summary||""}</p>`;
+  if(d.goals?.length){ h+=`<label>🎯 Tus objetivos</label>`+d.goals.map(g=>`<div class="note">${g}</div>`).join(""); }
   if(d.plan?.length){ h+=`<label>🗺️ Tu plan</label>`+d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${p}</div>`).join(""); }
-  document.getElementById("planBody").innerHTML=h;
-  show("v-plan");
+  document.getElementById("planBody").innerHTML=h; show("v-plan");
 }
 
-/* ================= CLASE ================= */
+/* ===== HOME ===== */
+function renderHome(){
+  document.getElementById("homeHi").textContent=`¡Hola, ${S.name}! 👋`;
+  const dias=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  const meses=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const n=new Date(); document.getElementById("homeDay").textContent=`${dias[n.getDay()]} ${n.getDate()} de ${meses[n.getMonth()]}`;
+  document.getElementById("streakNum").textContent=`🔥 ${S.stats.streak}`;
+  document.getElementById("streakTxt").textContent=S.stats.streak===1?"día seguido":"días seguidos";
+  document.getElementById("streakSub").textContent=S.stats.lastDay===today()?"¡Ya practicaste hoy! 🎉":"Practicá hoy para sumar";
+  const ti=todayInter(); const pct=Math.min(100,Math.round(ti.inter/S.dailyGoal*100));
+  document.getElementById("goalBar").style.width=pct+"%";
+  document.getElementById("goalChip").textContent=`${Math.min(ti.inter,S.dailyGoal)}/${S.dailyGoal}`;
+  document.getElementById("goalHint").textContent = ti.inter>=S.dailyGoal ? "¡Meta de hoy cumplida! 🌟" : "Respondé en la clase para completarla.";
+  document.getElementById("tGoals").textContent=`${Object.values(S.goalsDone).filter(Boolean).length}/${(S.plan?.goals||[]).length} logradas`;
+  document.getElementById("tNotes").textContent=`${S.notes.length} guardados`;
+  document.getElementById("tRem").textContent=S.rem.on?`a las ${S.rem.time}`:"apagado";
+}
+
+/* ===== CLASE ===== */
 function teacherSystem(){
-  return `Sos "Miss Clara", una profesora de inglés paciente, cálida y profesional, que le da clases particulares a ${S.name}, una persona mayor hispanohablante de nivel ${S.level} (MCER).
-Objetivo de ${S.name}: ${S.goal||"aprender inglés general"}.
-Tema inicial sugerido: ${S.plan?.firstLessonTopic||"Saludos"}.
-
-REGLAS de la clase:
-1. Hablás como en una clase real, de a poco, un concepto por vez. Nunca abrumes.
-2. Adaptá el inglés al nivel ${S.level}: en A1/A2 usá frases muy simples y traducí al español entre paréntesis. En B1+ usá más inglés y menos español.
-3. Cuando el alumno escribe/habla en inglés, CORREGÍ con cariño: mostrá "❌ lo que dijo" y "✅ la forma correcta", y explicá el porqué en español en 1 oración. Si estuvo bien, felicitá.
-4. Enseñá pronunciación cuando sirva (escribí cómo suena en español, ej: "water" suena "uóter").
+  return `Sos "Miss Clara", profesora de inglés paciente, cálida y profesional, que le da clases particulares a ${S.name}, persona mayor hispanohablante de nivel ${S.level} (MCER).
+Objetivo de ${S.name}: ${S.goal||"aprender inglés general"}. Tema inicial sugerido: ${S.plan?.firstLessonTopic||"Saludos"}.
+REGLAS:
+1. Clase real: un concepto por vez, sin abrumar.
+2. Adaptá el inglés al nivel ${S.level}: en A1/A2 frases muy simples y traducí al español entre paréntesis; en B1+ más inglés y menos español.
+3. Cuando el alumno escribe/habla en inglés, CORREGÍ con cariño: "❌ lo que dijo" y "✅ la forma correcta", y el porqué en español en 1 oración. Si estuvo bien, felicitá.
+4. Enseñá pronunciación cuando sirva (cómo suena en español, ej: "water" suena "uóter").
 5. Proponé mini-ejercicios y esperá la respuesta antes de seguir.
-6. Cuando des un dato clave para recordar (una regla, vocabulario, una frase útil), marcá esa parte empezando la línea con "APUNTE:" seguido del contenido en una sola línea. Usá APUNTE varias veces por clase.
-7. Respuestas cortas: máximo 5-6 líneas. Preguntá seguido para mantener conversación.
-8. Terminá casi siempre con una pregunta o una consigna para que el alumno responda.
-9. Todo el texto en inglés que quieras que practique, escribilo claro para poder leerlo en voz alta.
-Nunca rompas el personaje. No uses markdown de encabezados.`;
+6. Cuando des algo clave para recordar (regla, vocabulario, frase útil), empezá esa línea con "APUNTE:" y el contenido en una sola línea. Usá APUNTE varias veces por clase.
+7. Respuestas cortas: máximo 5-6 líneas. Preguntá seguido.
+8. Terminá casi siempre con una pregunta o consigna.
+9. El inglés a practicar, escribilo claro para leerlo en voz alta.
+Nunca rompas el personaje ni uses encabezados markdown.`;
 }
-
-function geminiContents(){
-  return S.history.map(m=>({ role: m.role==="teacher"?"model":"user", parts:[{text:m.text}] }));
-}
-
+function geminiContents(){ return S.history.map(m=>({role:m.role==="teacher"?"model":"user",parts:[{text:m.text}]})); }
 function extractNotes(text){
-  const lines = text.split("\n");
-  const kept=[];
-  lines.forEach(l=>{
-    const m = l.match(/^\s*APUNTE:\s*(.+)$/i);
-    if(m){ S.notes.push({t:m[1].trim(), when:Date.now()}); }
-    else kept.push(l);
-  });
-  if(S.notes.length>200) S.notes = S.notes.slice(-200);
+  const kept=[]; text.split("\n").forEach(l=>{ const m=l.match(/^\s*APUNTE:\s*(.+)$/i);
+    if(m) S.notes.push({t:m[1].trim(),when:Date.now()}); else kept.push(l); });
+  if(S.notes.length>300) S.notes=S.notes.slice(-300);
   return kept.join("\n").trim();
 }
-
-function addMsg(role, text){
+function addMsg(role,text){
   const chat=document.getElementById("chat");
-  const d=document.createElement("div"); d.className="msg "+(role==="teacher"?"t":"u");
-  d.textContent=text;
-  if(role==="teacher"){
-    const say=document.createElement("div"); say.className="sayen"; say.innerHTML="🔊 Escuchar en inglés";
-    say.onclick=()=>{ const en = englishOf(text); speak(en||text,"en-US"); };
-    d.appendChild(say);
-  }
-  chat.appendChild(d);
-  window.scrollTo(0,document.body.scrollHeight);
+  const d=document.createElement("div"); d.className="msg "+(role==="teacher"?"t":"u"); d.textContent=text;
+  if(role==="teacher"){ const say=document.createElement("div"); say.className="sayen"; say.innerHTML="🔊 Escuchar en inglés";
+    say.onclick=()=>speak(text,"en-US"); d.appendChild(say); }
+  chat.appendChild(d); window.scrollTo(0,document.body.scrollHeight);
 }
-// Heurística: leer en inglés las frases que parecen inglés (sin paréntesis en español)
-function englishOf(text){
-  const enLines = text.split("\n").filter(l=>/[a-z]/i.test(l) && !/[áéíóúñ¿¡]/i.test(l.replace(/\(.*?\)/g,"")));
-  return text; // dejamos que el navegador lea; en-US igual pronuncia razonable
-}
-
 let thinking=false;
 async function sendToTeacher(userText){
   if(thinking) return;
-  if(userText){ S.history.push({role:"user",text:userText}); addMsg("user",userText); save(); }
+  if(userText){ S.history.push({role:"user",text:userText}); addMsg("user",userText); bumpInter(); save(); renderHome(); }
   thinking=true;
   const chat=document.getElementById("chat");
   const t=document.createElement("div"); t.className="typing"; t.textContent="Miss Clara está escribiendo…"; chat.appendChild(t);
   window.scrollTo(0,document.body.scrollHeight);
-  try{
-    const raw = await gemini(teacherSystem(), geminiContents());
-    const clean = extractNotes(raw);
-    S.history.push({role:"teacher",text:clean}); save();
-    t.remove(); addMsg("teacher",clean);
-    speak(clean,"en-US");
-  }catch(e){
-    t.remove();
-    addMsg("teacher","Uy, tuve un problema para responder 😔. Revisá la conexión o la clave. ("+e.message.slice(0,60)+")");
-  }finally{ thinking=false; }
+  try{ const raw=await gemini(teacherSystem(),geminiContents()); const clean=extractNotes(raw);
+    S.history.push({role:"teacher",text:clean}); save(); t.remove(); addMsg("teacher",clean); speak(clean,"en-US"); }
+  catch(e){ t.remove(); addMsg("teacher","Uy, tuve un problema para responder 😔. Revisá la conexión o la clave. ("+e.message.slice(0,60)+")"); }
+  finally{ thinking=false; }
 }
-
 function startClass(){
   show("v-class");
-  document.getElementById("topTitle").textContent="Clase con Miss Clara";
-  if(S.history.length===0){
-    sendToTeacher(`Hola, soy ${S.name}. Empecemos mi primera clase de nivel ${S.level}. Saludame y arranquemos con el primer tema.`);
-  }else{
-    document.getElementById("chat").innerHTML="";
-    S.history.forEach(m=>addMsg(m.role==="teacher"?"teacher":"user", m.text));
-  }
+  if(S.history.length===0){ sendToTeacher(`Hola, soy ${S.name}. Empecemos mi primera clase de nivel ${S.level}. Saludame y arranquemos con el primer tema.`); }
+  else{ document.getElementById("chat").innerHTML=""; S.history.forEach(m=>addMsg(m.role==="teacher"?"teacher":"user",m.text)); }
 }
 function quickSend(t){ sendToTeacher(t); }
+document.getElementById("btnStartClass").onclick=startClass;
+document.getElementById("btnTodayClass").onclick=startClass;
 
-// micrófono en clase
-let classRecog=null, classRec=false;
+let classRecog=null,classRec=false;
 document.getElementById("micBtn").onclick=()=>{
   if(!SR){ alert("Este navegador no soporta reconocimiento de voz. Usá Chrome en Android."); return; }
-  const btn=document.getElementById("micBtn"), hint=document.getElementById("micHint");
-  if(classRec){ classRecog && classRecog.stop(); return; }
-  classRecog = initRecog(); if(!classRecog) return;
+  const btn=document.getElementById("micBtn"),hint=document.getElementById("micHint");
+  if(classRec){ classRecog&&classRecog.stop(); return; }
+  classRecog=initRecog(); if(!classRecog) return;
   classRec=true; btn.classList.add("rec"); btn.textContent="⏹️"; hint.textContent="Escuchando… hablá ahora 🎤";
-  classRecog.onresult=e=>{ const txt=e.results[0][0].transcript; document.getElementById("typeIn").value=txt; };
+  classRecog.onresult=e=>{ document.getElementById("typeIn").value=e.results[0][0].transcript; };
   classRecog.onend=()=>{ classRec=false; btn.classList.remove("rec"); btn.textContent="🎤"; hint.textContent="Tocá el micrófono y hablá en inglés 🎤";
     const v=document.getElementById("typeIn").value.trim(); if(v){ document.getElementById("typeIn").value=""; sendToTeacher(v); } };
   classRecog.onerror=()=>{ classRec=false; btn.classList.remove("rec"); btn.textContent="🎤"; hint.textContent="No te escuché. Probá de nuevo 🎤"; };
   try{ classRecog.start(); }catch(e){}
 };
-document.getElementById("sendBtn").onclick=()=>{
-  const i=document.getElementById("typeIn"); const v=i.value.trim(); if(!v) return; i.value=""; sendToTeacher(v);
-};
-document.getElementById("typeIn").addEventListener("keydown",e=>{ if(e.key==="Enter"){ document.getElementById("sendBtn").click(); }});
+document.getElementById("sendBtn").onclick=()=>{ const i=document.getElementById("typeIn"); const v=i.value.trim(); if(!v) return; i.value=""; sendToTeacher(v); };
+document.getElementById("typeIn").addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("sendBtn").click(); });
 
-document.getElementById("btnStartClass").onclick=startClass;
+/* ===== METAS / PROGRESO ===== */
+function openGoals(){
+  const list=document.getElementById("goalsList"); const goals=S.plan?.goals||[];
+  list.innerHTML = goals.length? goals.map((g,i)=>{
+    const on=S.goalsDone[i]?"on":"";
+    return `<div class="checkline" onclick="toggleGoal(${i})"><div class="checkbox ${on}">${S.goalsDone[i]?"✓":""}</div><div>${g}</div></div>`;
+  }).join("") : "<p class='sub'>Todavía no hay metas. Hacé el test de nivel.</p>";
+  document.getElementById("pStreak").textContent=S.stats.best;
+  document.getElementById("pDays").textContent=S.stats.days.length;
+  document.getElementById("pClasses").textContent=S.stats.classes;
+  document.getElementById("pNotes").textContent=S.notes.length;
+  show("v-goals");
+}
+function toggleGoal(i){ S.goalsDone[i]=!S.goalsDone[i]; save(); openGoals(); }
 
-/* ================= MENU / APUNTES ================= */
-document.getElementById("btnNotes").onclick=()=>{
-  const c=document.getElementById("notesCard"), b=document.getElementById("notesBody");
-  if(S.notes.length===0){ b.innerHTML="<p class='sub'>Todavía no hay apuntes. Van a aparecer solos a medida que Miss Clara te enseñe.</p>"; }
-  else{ b.innerHTML = S.notes.slice().reverse().map(n=>`<div class="note">${n.t}</div>`).join(""); }
-  c.style.display="block"; c.scrollIntoView({behavior:"smooth"});
-};
-document.getElementById("btnReplan").onclick=()=>{ if(confirm("¿Rehacer el test de nivel? Tu clase actual se mantiene.")) startTest(); };
-document.getElementById("btnReset").onclick=()=>{
-  if(confirm("Esto borra el nombre, el nivel, la clase y los apuntes de este dispositivo. ¿Seguro?")){
-    const key=S.key; localStorage.removeItem(LS); S={key,name:"",goal:"",level:"",plan:null,history:[],notes:[]}; save(); boot();
+/* ===== APUNTES ===== */
+function openNotes(){
+  const b=document.getElementById("notesBody");
+  b.innerHTML = S.notes.length? S.notes.slice().reverse().map(n=>`<div class="note">${n.t}</div>`).join("")
+    : "<p class='sub'>Todavía no hay apuntes. Van a aparecer solos cuando Miss Clara te enseñe.</p>";
+  show("v-notes");
+}
+
+/* ===== PLAN VIEW ===== */
+function openPlanView(){
+  const d=S.plan||{}; document.getElementById("pvLvl").textContent=`Nivel ${d.level||S.level} · ${d.levelName||""}`;
+  let h=`<p>${d.summary||""}</p>`;
+  if(d.plan?.length) h+=d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${p}</div>`).join("");
+  document.getElementById("pvBody").innerHTML=h; show("v-planview");
+}
+
+/* ===== RECORDATORIO ===== */
+document.getElementById("remOn").checked=false;
+function paintRem(){ document.getElementById("remOn").checked=S.rem.on; document.getElementById("remTime").value=S.rem.time;
+  document.getElementById("remStatus").textContent=S.rem.on?`Activado a las ${S.rem.time}.`:"Desactivado."; }
+document.getElementById("btnSaveRem").onclick=async()=>{
+  const on=document.getElementById("remOn").checked; const time=document.getElementById("remTime").value||"10:00";
+  const st=document.getElementById("remStatus");
+  if(on && "Notification" in window){
+    let perm=Notification.permission;
+    if(perm!=="granted") perm=await Notification.requestPermission();
+    if(perm!=="granted"){ st.textContent="El celular no dio permiso para notificar. Activalo en los ajustes del navegador."; document.getElementById("remOn").checked=false; return; }
   }
+  S.rem.on=on; S.rem.time=time; S.rem.firedDay=""; save(); paintRem();
+  st.textContent=on?`¡Listo! Te aviso a las ${time}.`:"Recordatorio desactivado.";
+  renderHome();
 };
+function checkReminder(){
+  if(!S.rem.on) return; const t=today();
+  if(S.rem.firedDay===t) return;
+  const now=new Date(); const hhmm=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  if(hhmm>=S.rem.time){
+    if(S.stats.lastDay===t) { S.rem.firedDay=t; save(); return; } // ya practicó hoy
+    S.rem.firedDay=t; save();
+    const msg=`¡Hola ${S.name}! Es hora de tu clase de inglés 🎓`;
+    try{ if("Notification" in window && Notification.permission==="granted"){
+      if(navigator.serviceWorker && navigator.serviceWorker.ready){ navigator.serviceWorker.ready.then(r=>r.showNotification("Mi Clase de Inglés",{body:msg,icon:"icon.svg",badge:"icon.svg"})); }
+      else new Notification("Mi Clase de Inglés",{body:msg,icon:"icon.svg"});
+    } }catch(e){}
+  }
+}
+setInterval(checkReminder,30000);
 
-/* ================= Boot ================= */
+/* ===== AJUSTES ===== */
+document.getElementById("btnSaveGoal").onclick=()=>{ const n=parseInt(document.getElementById("setGoal").value)||5;
+  S.dailyGoal=Math.max(1,Math.min(50,n)); save(); alert("Meta diaria guardada: "+S.dailyGoal+" respuestas."); };
+document.getElementById("btnReplan").onclick=()=>{ if(confirm("¿Rehacer el test de nivel? Tu clase y apuntes se mantienen.")) startTest(); };
+document.getElementById("btnChangeKey").onclick=()=>{ S.key=""; save(); show("v-setup"); };
+document.getElementById("btnReset").onclick=()=>{ if(confirm("Esto borra nombre, nivel, clase, metas y apuntes de este dispositivo. ¿Seguro?")){
+  const key=S.key; localStorage.removeItem(LS); S=structuredClone(DEFAULT); S.key=key; save(); boot(); } };
+
+/* ===== Boot ===== */
 function routeAfterKey(){
+  document.getElementById("setGoal").value=S.dailyGoal; paintRem();
   if(!S.name){ show("v-profile"); return; }
   if(!S.level){ startTest(); return; }
-  if(S.history.length>0){ startClass(); return; }
-  if(S.plan){ renderPlan(S.plan); return; }
-  startTest();
+  renderHome(); show("v-home");
 }
-function boot(){
-  if(!S.key){ show("v-setup"); return; }
-  routeAfterKey();
+function boot(){ if(!S.key){ show("v-setup"); return; } routeAfterKey(); }
+
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
 boot();
 </script>

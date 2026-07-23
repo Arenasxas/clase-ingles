@@ -1,0 +1,16 @@
+{
+  "name": "Mi Clase de Inglés",
+  "short_name": "Mi Inglés",
+  "description": "Clases de inglés con una profe de IA, paso a paso.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f1ea",
+  "theme_color": "#2f7d6f",
+  "lang": "es-AR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

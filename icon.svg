@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#2f7d6f"/>
+  <circle cx="256" cy="216" r="128" fill="#e8a33d"/>
+  <path d="M256 96a120 120 0 0 0 0 240 120 120 0 0 0 0-240zm0 20c14 18 24 46 26 78h-52c2-32 12-60 26-78zm-38 8c-8 18-13 43-15 70h-46a102 102 0 0 1 61-70zm76 0a102 102 0 0 1 61 70h-46c-2-27-7-52-15-70zm-129 90h50c1 24 6 47 14 66a102 102 0 0 1-64-66zm71 0h54c-2 30-12 56-27 74-15-18-25-44-27-74zm75 0h50a102 102 0 0 1-64 66c8-19 13-42 14-66z" fill="#ffffff"/>
+  <rect x="120" y="360" width="272" height="86" rx="20" fill="#ffffff"/>
+  <rect x="120" y="360" width="272" height="86" rx="20" fill="none" stroke="#245f55" stroke-width="0"/>
+  <text x="256" y="420" font-family="Georgia, 'Times New Roman', serif" font-size="64" font-weight="700" fill="#245f55" text-anchor="middle">ABC</text>
+</svg>
