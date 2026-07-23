@@ -856,7 +856,8 @@ function renderJuegosHub(){
     <button class="btn sec" onclick="gameCloze()">✍️ Completá la frase</button>
     <button class="btn sec" onclick="gameScramble()">🔤 Ordená la frase</button>
     <button class="btn sec" onclick="gameTranslate()">🌎 Traducí al inglés</button>
-    <p class="hint">Repaso y "¿Qué escuchaste?" son gratis (usan tus tarjetas). Los demás usan a la profe.</p></div>`;
+    <button class="btn sec" onclick="gamePron()">🎙️ Pronunciación</button>
+    <p class="hint">Repaso, "¿Qué escuchaste?" y Pronunciación son gratis (no usan la profe). Completar, ordenar y traducir sí la usan.</p></div>`;
 }
 function juegoLoading(m){ document.getElementById("juegosBox").innerHTML=`<div class="card center"><div class="spin dark" style="width:36px;height:36px;border-width:4px"></div><p class="sub" style="margin-top:14px">${m||"Preparando…"}</p></div>`; }
 function juegoError(e){ const lim=e&&e.message==="LIMITE"; document.getElementById("juegosBox").innerHTML=`<div class="card"><p>${lim?"Llegaste al máximo de la profe por hoy 😊. El 🃏 Repaso y 👂 ¿Qué escuchaste? siguen gratis.":"Uy, hubo un error. Probá de nuevo."}</p><button class="btn" onclick="renderJuegosHub()">← Volver a juegos</button></div>`; }
@@ -990,6 +991,52 @@ function startRoleplay(s){
   document.getElementById("topTitle").textContent=`${s.emoji} ${s.title}`;
   document.getElementById("chat").innerHTML="";
   sendToTeacher();
+}
+
+/* ===== PRONUNCIACIÓN (local) ===== */
+const PRON_PHRASES={
+ A1:["Good morning","My name is Rosa","How are you?","Thank you very much","I have two children","Where is the bathroom?","I would like a coffee","See you tomorrow","Nice to meet you","I am from Argentina"],
+ A2:["I went to the market yesterday","How much is this?","Can you help me, please?","The weather is nice today","I am going to travel next week","Turn left at the corner","I would like to pay, please"],
+ B1:["I have lived here for ten years","If it rains, we will stay home","I think it is a good idea","Could you tell me the way to the station?","I have already finished my work"],
+ B2:["I would have done it differently","The house was built in 1950","Although it was late, we continued","She said she was feeling better","You should have called me earlier"],
+ C1:["I'd rather we discussed this in person","It goes without saying that practice matters","Let's make a decision and move forward","I couldn't agree with you more"],
+};
+function pronPool(){
+  const base=(PRON_PHRASES[S.level]||PRON_PHRASES.A1).slice();
+  (S.deck||[]).forEach(c=>{ if(c.ex && c.ex.split(/\s+/).length>=2) base.push(c.ex); });
+  return base;
+}
+let pronTarget="";
+function gamePron(){ const p=pronPool(); pronTarget=p[Math.floor(Math.random()*p.length)]; renderPron(); }
+function renderPron(result){
+  document.getElementById("juegosBox").innerHTML=`<div class="card"><h2>🎙️ Pronunciación</h2>
+    <p class="sub">Escuchá la frase y repetila. Te marco en verde lo que salió bien.</p>
+    <div style="font-size:24px;font-weight:700;margin:12px 0;line-height:1.5">${result?result.html:pronTarget}</div>
+    <button class="btn sec" onclick="speak(pronTarget,'en-US')">🔊 Escuchar</button>
+    <button class="btn" id="pronMic">🎤 Repetir ahora</button>
+    <div id="pronResult">${result?`<div class="note">Puntaje: <b>${result.score}%</b> · ${result.msg}</div>`:""}</div>
+    ${result?`<div class="row"><button class="btn sec" style="margin:0" onclick="renderPron()">🔁 Reintentar</button><button class="btn" style="margin:0" onclick="gamePron()">Otra ✨</button></div>`:""}
+    <button class="btn ghost" onclick="renderJuegosHub()">← Volver a juegos</button></div>`;
+  document.getElementById("pronMic").onclick=function(){ startPronRec(this); };
+}
+function startPronRec(btn){
+  if(!SR){ alert("Este navegador no soporta el micrófono. Usá Chrome en Android."); return; }
+  const r=initRecog(); if(!r) return;
+  btn.classList.add("rec"); btn.textContent="⏹️ Escuchando…";
+  r.onresult=e=>scorePron(e.results[0][0].transcript);
+  r.onend=()=>{ btn.classList.remove("rec"); btn.textContent="🎤 Repetir ahora"; };
+  r.onerror=()=>{ btn.classList.remove("rec"); btn.textContent="🎤 Repetir ahora"; };
+  try{ r.start(); }catch(e){}
+}
+function scorePron(said){
+  const norm=s=>s.toLowerCase().replace(/[.,!?;:'"]/g,"").trim();
+  const tw=norm(pronTarget).split(/\s+/), pool=norm(said).split(/\s+/);
+  let ok=0;
+  const html=tw.map(w=>{ const i=pool.indexOf(w); if(i>=0){ pool.splice(i,1); ok++; return `<span style="color:var(--good)">${w}</span>`; } return `<span style="color:var(--err);text-decoration:underline">${w}</span>`; }).join(" ");
+  const score=Math.round(ok/tw.length*100);
+  const msg=score>=85?"¡Excelente! 🌟":score>=60?"Muy bien, seguí practicando.":"Escuchá de nuevo y repetí despacio.";
+  if(score>=60) bumpInter();
+  renderPron({html,score,msg});
 }
 
 /* ===== CAMINO DE LECCIONES ===== */

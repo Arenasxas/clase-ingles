@@ -20,12 +20,12 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 
 - **P2 · Logros / insignias / XP** — 12 insignias, puntos, niveles, avisos (toast) al desbloquear
 - **P3 · Camino de lecciones por nivel** — 10 lecciones por nivel (A1–C1), progreso, desbloqueo lineal, +20 XP por lección
+- **P4 · Feedback de pronunciación** — repetir frase, marca palabras bien (verde) / a reforzar (rojo) + puntaje. Local, sin API
 
 ## 🔨 En progreso
-- **P4 · Feedback de pronunciación** — comparar dicho vs. correcto (ELSA)
+- **P5 · Historias / lecturas graduadas** — input comprensible (Duolingo Stories/LingQ)
 
 ## ⏳ Próximo (priorizado)
-- **P5 · Historias / lecturas graduadas** — input comprensible (Duolingo Stories/LingQ)
 
 ## Notas
 - URL: https://arenasxas.github.io/clase-ingles/
