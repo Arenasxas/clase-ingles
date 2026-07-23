@@ -107,6 +107,8 @@
   .switch input:checked + .track{background:var(--brand)}
   .switch input:checked + .track + .knob{left:29px}
   .rowbtw{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--brand-dark);color:#fff;padding:14px 20px;border-radius:14px;box-shadow:var(--shadow);font-weight:700;opacity:0;transition:.35s;z-index:100;max-width:90%;text-align:center}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
 <body>
@@ -215,6 +217,10 @@
           <div style="font-weight:700" id="streakTxt">días seguidos</div>
           <small id="streakSub">Empezá hoy tu racha</small>
         </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="big" id="xpNum" style="font-size:30px">0</div>
+          <small>puntos · Nivel <span id="lvlNum">1</span></small>
+        </div>
       </div>
       <div class="card goal">
         <div class="rowbtw"><h3 style="margin:0">🎯 Meta de hoy</h3><span class="chip" id="goalChip"></span></div>
@@ -226,6 +232,7 @@
         <button class="btn sec" onclick="openRepaso()" style="margin:0">🃏 Repaso<span id="repasoCount"></span></button>
         <button class="btn sec" onclick="openJuegos()" style="margin:0">🎮 Juegos</button>
       </div>
+      <button class="btn sec" onclick="openRoleplay()" style="margin-top:10px">🎭 Situaciones reales</button>
       <p class="hint center" id="usageHint" style="margin-top:10px"></p>
       <div class="grid" style="margin-top:16px">
         <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
@@ -234,6 +241,7 @@
         <div class="tile" onclick="show('v-reminder')"><div class="ico">🔔</div><div class="t">Recordatorio</div><div class="n" id="tRem">apagado</div></div>
         <div class="tile" onclick="openPrefs()"><div class="ico">🎨</div><div class="t">Personalizar</div><div class="n">tu clase</div></div>
         <div class="tile" onclick="openGuide(true)"><div class="ico">📖</div><div class="t">Cómo funciona</div><div class="n">guía</div></div>
+        <div class="tile" onclick="openLogros()"><div class="ico">🏅</div><div class="t">Logros</div><div class="n" id="tLogros"></div></div>
       </div>
       <button class="btn ghost" style="margin-top:14px" onclick="show('v-settings')">⚙️ Ajustes</button>
     </section>
@@ -286,6 +294,16 @@
     <!-- JUEGOS -->
     <section class="view" id="v-juegos">
       <div id="juegosBox"></div>
+    </section>
+
+    <!-- ROLEPLAY -->
+    <section class="view" id="v-roleplay">
+      <div id="roleBox"></div>
+    </section>
+
+    <!-- LOGROS -->
+    <section class="view" id="v-logros">
+      <div id="logrosBox"></div>
     </section>
 
     <!-- APUNTES -->
@@ -349,7 +367,7 @@ const LS = "claseIngles.v2";
 const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, history:[],
   notes:[], goalsDone:{}, dailyGoal:5,
   prefs:{style:[],styleMore:"",objective:""}, material:"", seenGuide:false,
-  deck:[], usage:{day:"",reqs:0},
+  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" } };
 let S = migrate(load()) || structuredClone(DEFAULT);
@@ -371,7 +389,40 @@ function markPracticed(){
   st.classes++; save();
 }
 function todayInter(){ const st=S.stats; if(st.today.day!==today()){ st.today={day:today(),inter:0}; } return st.today; }
-function bumpInter(){ const ti=todayInter(); ti.inter++; if(ti.inter>=S.dailyGoal) markPracticed(); save(); }
+function bumpInter(){ const ti=todayInter(); ti.inter++; if(ti.inter>=S.dailyGoal) markPracticed(); S.xp=(S.xp||0)+5; checkBadges(); save(); }
+
+/* ===== Logros / XP ===== */
+const BADGES=[
+ {id:"first_class",emoji:"🎓",name:"Primera clase",cond:s=>s.stats.classes>=1},
+ {id:"first_role",emoji:"🎭",name:"Primera situación",cond:s=>s.rolesDone>=1},
+ {id:"streak3",emoji:"🔥",name:"3 días seguidos",cond:s=>s.stats.best>=3},
+ {id:"streak7",emoji:"🔥",name:"1 semana seguida",cond:s=>s.stats.best>=7},
+ {id:"streak30",emoji:"🏆",name:"1 mes seguido",cond:s=>s.stats.best>=30},
+ {id:"words10",emoji:"📚",name:"10 palabras",cond:s=>s.deck.length>=10},
+ {id:"words50",emoji:"📚",name:"50 palabras",cond:s=>s.deck.length>=50},
+ {id:"words100",emoji:"🧠",name:"100 palabras",cond:s=>s.deck.length>=100},
+ {id:"xp100",emoji:"⭐",name:"100 puntos",cond:s=>(s.xp||0)>=100},
+ {id:"xp500",emoji:"🌟",name:"500 puntos",cond:s=>(s.xp||0)>=500},
+];
+function toast(msg){
+  const el=document.createElement("div"); el.className="toast"; el.textContent=msg; document.body.appendChild(el);
+  setTimeout(()=>el.classList.add("show"),10);
+  setTimeout(()=>{ el.classList.remove("show"); setTimeout(()=>el.remove(),400); },3200);
+}
+function checkBadges(){ BADGES.forEach(b=>{ if(!S.badges[b.id] && b.cond(S)){ S.badges[b.id]=Date.now(); save(); toast(`🏅 ¡Logro! ${b.emoji} ${b.name}`); } }); }
+function openLogros(){
+  const xp=S.xp||0, lvl=Math.floor(xp/100)+1, into=xp%100;
+  document.getElementById("logrosBox").innerHTML=`<div class="card center">
+    <h2>🏅 Logros</h2>
+    <div class="big" style="font-size:42px;color:var(--brand)">${xp} <span style="font-size:18px;color:var(--muted)">puntos</span></div>
+    <p class="sub">Nivel ${lvl} · te faltan ${100-into} para el nivel ${lvl+1}</p>
+    <div class="progress"><i style="width:${into}%"></i></div></div>
+    <div class="card"><div class="grid" id="badgeGrid"></div></div>`;
+  const g=document.getElementById("badgeGrid"); let h="";
+  BADGES.forEach(b=>{ const on=!!S.badges[b.id];
+    h+=`<div class="tile" style="cursor:default;opacity:${on?1:.5}"><div class="ico">${on?b.emoji:"🔒"}</div><div class="t" style="font-size:15px">${b.name}</div><div class="n">${on?"logrado":"bloqueado"}</div></div>`; });
+  g.innerHTML=h; show("v-logros");
+}
 
 /* ===== Router ===== */
 function show(id){
@@ -382,7 +433,7 @@ function show(id){
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
     "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes",
-    "v-repaso":"Repaso","v-juegos":"Juegos" };
+    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros" };
   document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
@@ -570,6 +621,8 @@ function renderHome(){
   document.getElementById("streakNum").textContent=`🔥 ${S.stats.streak}`;
   document.getElementById("streakTxt").textContent=S.stats.streak===1?"día seguido":"días seguidos";
   document.getElementById("streakSub").textContent=S.stats.lastDay===today()?"¡Ya practicaste hoy! 🎉":"Practicá hoy para sumar";
+  const xp=S.xp||0; document.getElementById("xpNum").textContent=xp; document.getElementById("lvlNum").textContent=Math.floor(xp/100)+1;
+  document.getElementById("tLogros").textContent=`${Object.keys(S.badges||{}).length}/${BADGES.length}`;
   const ti=todayInter(); const pct=Math.min(100,Math.round(ti.inter/S.dailyGoal*100));
   document.getElementById("goalBar").style.width=pct+"%";
   document.getElementById("goalChip").textContent=`${Math.min(ti.inter,S.dailyGoal)}/${S.dailyGoal}`;
@@ -605,7 +658,9 @@ REGLAS:
 9. El inglés a practicar, escribilo claro para leerlo en voz alta.
 Nunca rompas el personaje ni uses encabezados markdown.`;
 }
-function geminiContents(){ return S.history.map(m=>({role:m.role==="teacher"?"model":"user",parts:[{text:m.text}]})); }
+let mode="class", roleHistory=[], roleScn=null;
+function curHist(){ return mode==="role"?roleHistory:S.history; }
+function geminiContents(){ return curHist().map(m=>({role:m.role==="teacher"?"model":"user",parts:[{text:m.text}]})); }
 /* ===== Tarjetas / SRS (Leitner) ===== */
 const BOX_DAYS=[0,0,1,3,7,16]; // dias hasta el proximo repaso segun caja (1..5)
 function addCard(front,back,ex){
@@ -640,19 +695,23 @@ function addMsg(role,text){
 let thinking=false;
 async function sendToTeacher(userText){
   if(thinking) return;
-  if(userText){ S.history.push({role:"user",text:userText}); addMsg("user",userText); bumpInter(); save(); renderHome(); }
+  const H=curHist();
+  if(userText){ H.push({role:"user",text:userText}); addMsg("user",userText); bumpInter(); save(); renderHome(); }
   thinking=true;
   const chat=document.getElementById("chat");
-  const t=document.createElement("div"); t.className="typing"; t.textContent="Miss Clara está escribiendo…"; chat.appendChild(t);
+  const who = mode==="role" ? (roleScn?roleScn.who:"la persona") : "Miss Clara";
+  const t=document.createElement("div"); t.className="typing"; t.textContent=who+" está escribiendo…"; chat.appendChild(t);
   window.scrollTo(0,document.body.scrollHeight);
-  try{ const raw=await gemini(teacherSystem(),geminiContents()); const clean=extractNotes(raw);
-    S.history.push({role:"teacher",text:clean}); save(); t.remove(); addMsg("teacher",clean); speak(clean,"en-US"); }
+  try{ const sys = mode==="role"?roleSystem():teacherSystem();
+    const raw=await gemini(sys,geminiContents()); const clean=extractNotes(raw);
+    H.push({role:"teacher",text:clean}); checkBadges(); save(); t.remove(); addMsg("teacher",clean); speak(clean,"en-US"); }
   catch(e){ t.remove();
     if(e.message==="LIMITE") addMsg("teacher","Por hoy la profe necesita descansar (llegaste al máximo de clase del día, o muy rápido: esperá 1 minuto). ¡Mientras seguí practicando gratis en 🃏 Repaso o 🎮 Juegos! Mañana volvemos. 😊");
     else addMsg("teacher","Uy, tuve un problema para responder 😔. Revisá la conexión o la clave. ("+e.message.slice(0,60)+")"); }
   finally{ thinking=false; }
 }
 function startClass(){
+  mode="class";
   show("v-class");
   if(S.history.length===0){ sendToTeacher(`Hola, soy ${S.name}. Empecemos mi primera clase de nivel ${S.level}. Saludame y arranquemos con el primer tema.`); }
   else{ document.getElementById("chat").innerHTML=""; S.history.forEach(m=>addMsg(m.role==="teacher"?"teacher":"user",m.text)); }
@@ -878,6 +937,49 @@ function checkTranslate(){
   const ok=norm(document.getElementById("trIn").value)===norm(window.trg.en);
   document.getElementById("trFb").innerHTML=`<div class="note">${ok?"✅ ¡Perfecto!":"Una forma correcta es:"} <b>${trg.en}</b> <span class="sayen" onclick="speak(trg.en,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameTranslate()">Otra ✨</button>`;
   if(ok) bumpInter();
+}
+
+/* ===== ROLEPLAY / SITUACIONES ===== */
+const SCENARIOS=[
+ {id:"cafe",emoji:"☕",title:"Pedir en un café",who:"el mozo",desc:"Pedís algo para tomar y comer, preguntás el precio y pagás.",role:"el mozo/camarero de un café, amable y paciente"},
+ {id:"presentarse",emoji:"👋",title:"Conocer a alguien",who:"tu vecino",desc:"Conocés a un vecino que habla inglés. Se presentan y charlan un poco.",role:"un vecino simpático que quiere conocerte"},
+ {id:"telefono",emoji:"📞",title:"Llamada con tu nieto",who:"tu nieto",desc:"Hablás por teléfono con tu nieto que vive afuera. Se cuentan cómo están.",role:"tu nieto cariñoso que vive en el exterior y te llama"},
+ {id:"medico",emoji:"🩺",title:"En el médico",who:"el doctor",desc:"No te sentís bien. Explicás qué te pasa y el doctor te pregunta y aconseja.",role:"un médico amable que atiende a un paciente"},
+ {id:"restaurante",emoji:"🍽️",title:"En un restaurante",who:"el mozo",desc:"Mirás el menú, pedís la comida y al final pedís la cuenta.",role:"mozo de un restaurante"},
+ {id:"tienda",emoji:"🛍️",title:"De compras",who:"la vendedora",desc:"Buscás ropa, preguntás talles, colores y precio.",role:"vendedora amable de una tienda de ropa"},
+ {id:"aeropuerto",emoji:"✈️",title:"En el aeropuerto",who:"la empleada",desc:"Hacés el check-in: pasaporte, valija y puerta de embarque.",role:"empleada del mostrador de la aerolínea"},
+ {id:"direcciones",emoji:"🗺️",title:"Pedir direcciones",who:"un vecino",desc:"Estás perdida y preguntás cómo llegar a un lugar.",role:"una persona amable en la calle que te ayuda"},
+];
+function openRoleplay(){ renderRoleMenu(); show("v-roleplay"); }
+function renderRoleMenu(){
+  document.getElementById("roleBox").innerHTML=`<div class="card">
+    <h2>🎭 Situaciones reales</h2>
+    <p class="sub">Practicá como en la vida real. Elegí una situación: la profe hace de personaje y te va corrigiendo.</p>
+    <div id="scnList"></div></div>`;
+  const l=document.getElementById("scnList");
+  SCENARIOS.forEach(s=>{ const b=document.createElement("button"); b.className="opt"; b.style.marginBottom="10px";
+    b.innerHTML=`<span style="font-size:22px">${s.emoji}</span> <b>${s.title}</b><br><span style="font-size:14px;color:var(--muted)">${s.desc}</span>`;
+    b.onclick=()=>startRoleplay(s); l.appendChild(b); });
+}
+function roleSystem(){
+  const s=roleScn;
+  return `Sos un ACTOR en un roleplay para que ${S.name} (nivel ${S.level} MCER, hispanohablante mayor) practique inglés hablando.
+ESCENA: ${s.desc}
+Tu personaje: ${s.role}.
+REGLAS:
+1. Hablás SIEMPRE en inglés, simple y acorde al nivel ${S.level}: frases cortas y claras.
+2. Mantené el personaje y hacé avanzar la escena con preguntas propias del rol (tomar el pedido, pedir el pasaporte, etc.).
+3. Si ${S.name} comete un error importante, al FINAL agregá una línea que empiece con "TIP:" con la corrección breve en español (❌ lo que dijo → ✅ lo correcto). Si estuvo bien, no agregues TIP.
+4. Máximo 3-4 líneas por turno. Paciencia y calidez. Nunca rompas el personaje salvo en la línea TIP.
+Empezá vos, en personaje, con el saludo de la escena.`;
+}
+function startRoleplay(s){
+  roleScn=s; mode="role"; roleHistory=[{role:"user",text:`(Comienza la escena: ${s.title})`}];
+  S.rolesDone=(S.rolesDone||0)+1; checkBadges(); save();
+  show("v-class");
+  document.getElementById("topTitle").textContent=`${s.emoji} ${s.title}`;
+  document.getElementById("chat").innerHTML="";
+  sendToTeacher();
 }
 
 /* ===== Boot ===== */
