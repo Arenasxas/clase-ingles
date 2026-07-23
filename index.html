@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mi Clase de Inglés</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --card:#ffffff; --ink:#2b2b2b; --muted:#6f6a63;
+    --brand:#2f7d6f; --brand-dark:#245f55; --accent:#e8a33d;
+    --ok:#2f7d6f; --err:#c0553b; --line:#e5e0d7;
+    --shadow:0 6px 20px rgba(0,0,0,.08);
+    --r:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:20px;line-height:1.5}
+  .app{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+  header.bar{display:flex;align-items:center;gap:10px;padding:14px 16px;
+    background:var(--brand);color:#fff;position:sticky;top:0;z-index:10}
+  header.bar h1{font-size:20px;margin:0;font-weight:700;flex:1}
+  header.bar .lvl{background:rgba(255,255,255,.2);padding:4px 10px;border-radius:999px;font-size:15px}
+  main{flex:1;padding:18px 16px 40px}
+  .view{display:none;animation:fade .25s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+  h2{font-size:26px;margin:0 0 8px;line-height:1.25}
+  p.sub{color:var(--muted);margin:0 0 18px}
+  label{display:block;font-weight:600;margin:14px 0 6px}
+  input[type=text],input[type=password],textarea,select{
+    width:100%;padding:14px;border:2px solid var(--line);border-radius:14px;
+    font-size:19px;font-family:inherit;background:#fff;color:var(--ink)}
+  input:focus,textarea:focus{outline:none;border-color:var(--brand)}
+  textarea{min-height:90px;resize:vertical}
+  .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    padding:18px;border:none;border-radius:16px;font-size:20px;font-weight:700;
+    background:var(--brand);color:#fff;cursor:pointer;box-shadow:var(--shadow);
+    margin-top:12px;transition:transform .06s}
+  .btn:active{transform:scale(.98)}
+  .btn.sec{background:#fff;color:var(--brand);border:2px solid var(--brand);box-shadow:none}
+  .btn.ghost{background:transparent;color:var(--muted);box-shadow:none;border:none;font-weight:600;font-size:17px}
+  .btn.small{padding:12px 14px;font-size:16px;width:auto}
+  .btn:disabled{opacity:.5}
+  .opt{display:block;width:100%;text-align:left;padding:16px 18px;margin:10px 0;
+    border:2px solid var(--line);border-radius:16px;background:#fff;font-size:19px;
+    cursor:pointer;transition:all .12s}
+  .opt:active{transform:scale(.99)}
+  .opt.sel{border-color:var(--brand);background:#eef6f4}
+  .opt.correct{border-color:var(--ok);background:#e7f3ef}
+  .opt.wrong{border-color:var(--err);background:#fbece7}
+  .progress{height:10px;background:var(--line);border-radius:999px;overflow:hidden;margin-bottom:18px}
+  .progress > i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+  .chip{display:inline-block;background:#eef6f4;color:var(--brand-dark);
+    padding:6px 12px;border-radius:999px;font-size:15px;margin:4px 6px 4px 0;font-weight:600}
+  .chat{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+  .msg{max-width:88%;padding:14px 16px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word}
+  .msg.t{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:6px}
+  .msg.u{background:var(--brand);color:#fff;align-self:flex-end;border-bottom-right-radius:6px}
+  .msg .sayen{cursor:pointer;color:var(--brand);font-size:15px;font-weight:700;margin-top:8px;display:inline-flex;gap:6px;align-items:center}
+  .msg.u .sayen{color:#dff1ec}
+  .dock{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 22%);
+    padding:10px 0 12px}
+  .quick{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+  .quick::-webkit-scrollbar{display:none}
+  .quick .btn{width:auto;white-space:nowrap;padding:10px 14px;font-size:15px;margin:0;background:#fff;color:var(--brand-dark);border:1px solid var(--line);box-shadow:none}
+  .microw{display:flex;gap:10px;align-items:center}
+  .mic{flex:0 0 auto;width:74px;height:74px;border-radius:50%;border:none;background:var(--brand);
+    color:#fff;font-size:30px;box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .mic.rec{background:var(--err);animation:pulse 1.1s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(192,85,59,.5)}70%{box-shadow:0 0 0 16px rgba(192,85,59,0)}100%{box-shadow:0 0 0 0 rgba(192,85,59,0)}}
+  .typerow{flex:1;display:flex;gap:8px}
+  .typerow input{flex:1}
+  .send{flex:0 0 auto;width:56px;padding:0;font-size:22px}
+  .note{background:#fffdf5;border:1px solid #f0e4c4;border-left:6px solid var(--accent);
+    border-radius:12px;padding:14px 16px;margin:10px 0}
+  .note b{color:var(--brand-dark)}
+  .hint{font-size:15px;color:var(--muted);margin-top:8px}
+  .center{text-align:center}
+  .spin{display:inline-block;width:22px;height:22px;border:3px solid rgba(255,255,255,.4);
+    border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+  .spin.dark{border-color:rgba(47,125,111,.25);border-top-color:var(--brand)}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  a.link{color:var(--brand);font-weight:600}
+  .typing{align-self:flex-start;color:var(--muted);font-style:italic;padding:6px 4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar" id="topbar" style="display:none">
+    <button class="btn ghost" style="color:#fff;width:auto;padding:6px;margin:0;font-size:22px" onclick="goHome()">☰</button>
+    <h1 id="topTitle">Mi Clase de Inglés</h1>
+    <span class="lvl" id="topLvl"></span>
+  </header>
+
+  <main>
+    <!-- SETUP: clave Gemini -->
+    <section class="view" id="v-setup">
+      <div class="card">
+        <h2>Bienvenida 👋</h2>
+        <p class="sub">Para que la clase funcione, pegá una vez la clave de Gemini. Queda guardada en este dispositivo, no se comparte.</p>
+        <label for="apiKey">Clave de Gemini (API key)</label>
+        <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off">
+        <p class="hint">La generás gratis en <b>aistudio.google.com/apikey</b>. Esto lo hace el nieto una sola vez.</p>
+        <button class="btn" id="btnSaveKey">Guardar y empezar</button>
+        <p class="hint" id="keyErr" style="color:var(--err);display:none"></p>
+      </div>
+    </section>
+
+    <!-- PERFIL -->
+    <section class="view" id="v-profile">
+      <div class="card">
+        <h2>¿Cómo te llamás?</h2>
+        <p class="sub">Así te saludo en cada clase.</p>
+        <label for="uname">Tu nombre</label>
+        <input type="text" id="uname" placeholder="Ej: Rosa" autocomplete="off">
+        <label for="ugoal">¿Para qué querés aprender inglés? (opcional)</label>
+        <textarea id="ugoal" placeholder="Ej: entender canciones, viajar, hablar con mis nietos, series..."></textarea>
+        <button class="btn" id="btnProfile">Continuar</button>
+      </div>
+    </section>
+
+    <!-- TEST -->
+    <section class="view" id="v-test">
+      <div class="card">
+        <div class="progress"><i id="testBar"></i></div>
+        <h2 id="qTitle">Test de nivel</h2>
+        <p class="sub" id="qSub"></p>
+        <div id="qBox"></div>
+      </div>
+    </section>
+
+    <!-- EVALUANDO -->
+    <section class="view" id="v-eval">
+      <div class="card center">
+        <h2>Estoy corrigiendo tu test… 📝</h2>
+        <p class="sub">Un momento, preparo tu plan personalizado.</p>
+        <div class="spin dark" style="width:40px;height:40px;border-width:5px"></div>
+      </div>
+    </section>
+
+    <!-- PLAN -->
+    <section class="view" id="v-plan">
+      <div class="card">
+        <h2 id="planHi"></h2>
+        <p class="sub">Este es tu punto de partida y tu plan.</p>
+        <div class="center"><span class="chip" id="planLvl" style="font-size:19px;padding:10px 18px"></span></div>
+        <div id="planBody" style="margin-top:16px"></div>
+        <button class="btn" id="btnStartClass">🎓 Empezar mi primera clase</button>
+      </div>
+    </section>
+
+    <!-- CLASE -->
+    <section class="view" id="v-class">
+      <div class="chat" id="chat"></div>
+      <div class="dock">
+        <div class="quick" id="quick">
+          <button class="btn" onclick="quickSend('Dame un ejercicio para practicar')">✏️ Ejercicio</button>
+          <button class="btn" onclick="quickSend('Explicame eso en español, por favor')">🇦🇷 En español</button>
+          <button class="btn" onclick="quickSend('¿Podés repetir más despacio?')">🐢 Más despacio</button>
+          <button class="btn" onclick="quickSend('Dame una palabra nueva de vocabulario con ejemplo')">📚 Palabra nueva</button>
+        </div>
+        <div class="microw">
+          <button class="mic" id="micBtn" title="Hablar en inglés">🎤</button>
+          <div class="typerow">
+            <input type="text" id="typeIn" placeholder="…o escribí acá" autocomplete="off">
+            <button class="btn send" id="sendBtn">➤</button>
+          </div>
+        </div>
+        <p class="hint center" id="micHint">Tocá el micrófono y hablá en inglés 🎤</p>
+      </div>
+    </section>
+
+    <!-- MENU -->
+    <section class="view" id="v-menu">
+      <div class="card">
+        <h2>Menú</h2>
+        <button class="btn sec" onclick="show('v-class')">↩️ Volver a la clase</button>
+        <button class="btn sec" id="btnNotes">📒 Mis apuntes</button>
+        <button class="btn sec" id="btnReplan">🔄 Rehacer test de nivel</button>
+        <button class="btn ghost" id="btnReset">🗑️ Borrar todo y empezar de cero</button>
+      </div>
+      <div class="card" id="notesCard" style="display:none">
+        <h2>📒 Mis apuntes</h2>
+        <div id="notesBody"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+"use strict";
+/* ================= Estado ================= */
+const LS = "claseIngles.v1";
+let S = load() || { key:"", name:"", goal:"", level:"", plan:null, history:[], notes:[] };
+function load(){ try{return JSON.parse(localStorage.getItem(LS))}catch(e){return null} }
+function save(){ localStorage.setItem(LS, JSON.stringify(S)); }
+
+/* ================= Router ================= */
+function show(id){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  const bar = document.getElementById("topbar");
+  const inApp = ["v-class","v-menu","v-plan"].includes(id);
+  bar.style.display = inApp ? "flex" : "none";
+  document.getElementById("topLvl").textContent = S.level || "";
+  window.scrollTo(0,0);
+}
+function goHome(){ show("v-menu"); document.getElementById("notesCard").style.display="none"; }
+
+/* ================= Gemini ================= */
+const MODEL = "gemini-2.5-flash";
+async function gemini(systemPrompt, contents, wantJson=false){
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(S.key)}`;
+  const body = {
+    system_instruction:{ parts:[{text:systemPrompt}] },
+    contents,
+    generationConfig: wantJson ? {responseMimeType:"application/json", temperature:0.4} : {temperature:0.7}
+  };
+  const r = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok){ const t=await r.text(); throw new Error("Gemini "+r.status+": "+t.slice(0,200)); }
+  const j = await r.json();
+  const txt = j?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("") || "";
+  return txt;
+}
+
+/* ================= Voz ================= */
+let voices=[];
+function loadVoices(){ voices = speechSynthesis.getVoices(); }
+if("speechSynthesis" in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+function speak(text, lang="en-US"){
+  if(!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  const v = voices.find(v=>v.lang===lang) || voices.find(v=>v.lang.startsWith(lang.slice(0,2)));
+  if(v) u.voice=v;
+  u.rate = lang.startsWith("en") ? 0.9 : 1;
+  speechSynthesis.speak(u);
+}
+// Recognition
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog=null, recording=false;
+function initRecog(){
+  if(!SR) return null;
+  const r = new SR();
+  r.lang="en-US"; r.interimResults=false; r.maxAlternatives=1; r.continuous=false;
+  return r;
+}
+
+/* ================= SETUP ================= */
+document.getElementById("btnSaveKey").onclick = async ()=>{
+  const k = document.getElementById("apiKey").value.trim();
+  const err = document.getElementById("keyErr");
+  if(!k){ err.textContent="Pegá la clave primero."; err.style.display="block"; return; }
+  const btn = document.getElementById("btnSaveKey");
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span> Probando la clave…';
+  S.key=k;
+  try{
+    await gemini("Sos un asistente.", [{role:"user",parts:[{text:"Responde solo: ok"}]}]);
+    save();
+    routeAfterKey();
+  }catch(e){
+    err.textContent="La clave no funcionó. Revisala. ("+e.message.slice(0,80)+")";
+    err.style.display="block"; S.key="";
+  }finally{ btn.disabled=false; btn.textContent="Guardar y empezar"; }
+};
+
+/* ================= PERFIL ================= */
+document.getElementById("btnProfile").onclick = ()=>{
+  const n = document.getElementById("uname").value.trim();
+  if(!n){ document.getElementById("uname").focus(); return; }
+  S.name=n; S.goal=document.getElementById("ugoal").value.trim(); save();
+  startTest();
+};
+
+/* ================= TEST DE NIVEL ================= */
+const QUESTIONS = [
+  {q:"Hello, ___ name is Ana.", o:["my","your","his"], a:0, lvl:1},
+  {q:"She ___ a teacher.", o:["am","is","are"], a:1, lvl:1},
+  {q:"I ___ coffee every morning.", o:["drinks","drinking","drink"], a:2, lvl:1},
+  {q:"They ___ to the park yesterday.", o:["go","went","going"], a:1, lvl:2},
+  {q:"There ___ two books on the table.", o:["is","are","am"], a:1, lvl:2},
+  {q:"I have lived here ___ 2010.", o:["for","since","from"], a:1, lvl:3},
+  {q:"If it rains, we ___ stay home.", o:["will","would","are"], a:0, lvl:3},
+  {q:"He said he ___ very tired.", o:["is","was","are"], a:1, lvl:4},
+  {q:"By next year, she ___ graduated.", o:["will","has","will have"], a:2, lvl:5},
+  {q:"I wish I ___ more time.", o:["have","had","has"], a:1, lvl:5},
+];
+let qi=0, answers=[];
+function startTest(){ qi=0; answers=[]; show("v-test"); renderQ(); }
+function renderQ(){
+  const t = QUESTIONS[qi];
+  document.getElementById("testBar").style.width = (qi/(QUESTIONS.length+1)*100)+"%";
+  document.getElementById("qTitle").textContent = `Pregunta ${qi+1} de ${QUESTIONS.length}`;
+  document.getElementById("qSub").innerHTML = "Elegí la palabra correcta:<br><b style='color:var(--ink);font-size:22px'>"+t.q+"</b>";
+  const box = document.getElementById("qBox"); box.innerHTML="";
+  t.o.forEach((opt,i)=>{
+    const b=document.createElement("button"); b.className="opt"; b.textContent=opt;
+    b.onclick=()=>{ answers.push({lvl:t.lvl, correct:i===t.a}); qi++;
+      if(qi<QUESTIONS.length) renderQ(); else openQuestion(); };
+    box.appendChild(b);
+  });
+}
+function openQuestion(){
+  document.getElementById("testBar").style.width = (QUESTIONS.length/(QUESTIONS.length+1)*100)+"%";
+  document.getElementById("qTitle").textContent = "Última parte 🗣️";
+  document.getElementById("qSub").innerHTML = "Contame en <b>inglés</b> qué hiciste ayer. Podés escribir o hablar. Si no sabés, escribí lo que puedas (no importa si tiene errores).";
+  const box=document.getElementById("qBox"); box.innerHTML="";
+  const ta=document.createElement("textarea"); ta.id="openAns"; ta.placeholder="Yesterday I ..."; box.appendChild(ta);
+  if(SR){
+    const mic=document.createElement("button"); mic.className="btn sec"; mic.innerHTML="🎤 Hablar en inglés";
+    let rec=false, r=initRecog();
+    mic.onclick=()=>{ if(!r) return;
+      if(rec){ r.stop(); return; }
+      rec=true; mic.innerHTML="⏹️ Detener (grabando…)"; mic.classList.add("rec");
+      r.onresult=e=>{ ta.value=(ta.value?ta.value+" ":"")+e.results[0][0].transcript; };
+      r.onend=()=>{ rec=false; mic.innerHTML="🎤 Hablar en inglés"; mic.classList.remove("rec"); };
+      r.onerror=()=>{ rec=false; mic.innerHTML="🎤 Hablar en inglés"; mic.classList.remove("rec"); };
+      try{r.start()}catch(e){}
+    };
+    box.appendChild(mic);
+  }
+  const go=document.createElement("button"); go.className="btn"; go.textContent="Ver mi resultado";
+  go.onclick=()=>evaluate(ta.value.trim()); box.appendChild(go);
+}
+
+function scoreLevel(){
+  // puntaje por nivel de las correctas
+  let hi=0, pts=0;
+  answers.forEach(a=>{ if(a.correct){ pts++; if(a.lvl>hi) hi=a.lvl; } });
+  if(pts<=2) return "A1";
+  if(pts<=4) return "A2";
+  if(pts<=6) return "B1";
+  if(pts<=8) return "B2";
+  return "C1";
+}
+
+async function evaluate(openText){
+  show("v-eval");
+  const rough = scoreLevel();
+  const correctas = answers.filter(a=>a.correct).length;
+  const sys = `Sos un evaluador experto de inglés (marco MCER/CEFR). Determinás el nivel real de un adulto mayor hispanohablante que recién empieza o retoma inglés. Sos amable y realista. Respondés SIEMPRE en JSON válido.`;
+  const prompt = `Datos del test:
+- Respuestas correctas de opción múltiple: ${correctas} de ${QUESTIONS.length}.
+- Nivel estimado por puntaje: ${rough}.
+- Texto libre que escribió en inglés (contando qué hizo ayer): """${openText||"(no escribió nada)"}"""
+- Nombre: ${S.name}. Objetivo: ${S.goal||"aprender inglés general"}.
+
+Devolvé un JSON con esta forma exacta:
+{
+ "level": "A1|A2|B1|B2|C1",
+ "levelName": "nombre corto en español, ej: Principiante",
+ "summary": "2-3 oraciones cálidas en español explicando en qué punto está y qué sabe/le falta",
+ "goals": ["3 objetivos concretos y alcanzables en español"],
+ "plan": ["4 a 6 pasos de un plan de estudio en español, ordenados de fácil a difícil, cortos"],
+ "firstLessonTopic": "tema de la primera clase, ej: Saludos y presentarse"
+}
+Ajustá el nivel usando el texto libre: si escribió bien y con estructuras complejas, subí; si casi no pudo, bajá.`;
+  try{
+    const raw = await gemini(sys, [{role:"user",parts:[{text:prompt}]}], true);
+    const data = JSON.parse(raw);
+    S.level = data.level || rough;
+    S.plan = data;
+    save(); renderPlan(data);
+  }catch(e){
+    // fallback sin IA
+    const data = { level:rough, levelName:"Tu nivel", summary:"Arrancamos desde tu nivel actual. Vamos a ir de a poco, sin apuro.",
+      goals:["Entender frases simples","Presentarte en inglés","Sumar 10 palabras nuevas por semana"],
+      plan:["Saludos y presentarte","Números y objetos de la casa","Verbos del día a día","Hacer preguntas simples"],
+      firstLessonTopic:"Saludos y presentarse" };
+    S.level=rough; S.plan=data; save(); renderPlan(data);
+  }
+}
+
+function renderPlan(d){
+  document.getElementById("planHi").textContent = `¡Muy bien, ${S.name}! 🌟`;
+  document.getElementById("planLvl").textContent = `Nivel ${d.level} · ${d.levelName||""}`;
+  let h = `<p>${d.summary||""}</p>`;
+  if(d.goals?.length){ h+=`<label>🎯 Tus objetivos</label><div>`+d.goals.map(g=>`<div class="note">${g}</div>`).join("")+`</div>`; }
+  if(d.plan?.length){ h+=`<label>🗺️ Tu plan</label>`+d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${p}</div>`).join(""); }
+  document.getElementById("planBody").innerHTML=h;
+  show("v-plan");
+}
+
+/* ================= CLASE ================= */
+function teacherSystem(){
+  return `Sos "Miss Clara", una profesora de inglés paciente, cálida y profesional, que le da clases particulares a ${S.name}, una persona mayor hispanohablante de nivel ${S.level} (MCER).
+Objetivo de ${S.name}: ${S.goal||"aprender inglés general"}.
+Tema inicial sugerido: ${S.plan?.firstLessonTopic||"Saludos"}.
+
+REGLAS de la clase:
+1. Hablás como en una clase real, de a poco, un concepto por vez. Nunca abrumes.
+2. Adaptá el inglés al nivel ${S.level}: en A1/A2 usá frases muy simples y traducí al español entre paréntesis. En B1+ usá más inglés y menos español.
+3. Cuando el alumno escribe/habla en inglés, CORREGÍ con cariño: mostrá "❌ lo que dijo" y "✅ la forma correcta", y explicá el porqué en español en 1 oración. Si estuvo bien, felicitá.
+4. Enseñá pronunciación cuando sirva (escribí cómo suena en español, ej: "water" suena "uóter").
+5. Proponé mini-ejercicios y esperá la respuesta antes de seguir.
+6. Cuando des un dato clave para recordar (una regla, vocabulario, una frase útil), marcá esa parte empezando la línea con "APUNTE:" seguido del contenido en una sola línea. Usá APUNTE varias veces por clase.
+7. Respuestas cortas: máximo 5-6 líneas. Preguntá seguido para mantener conversación.
+8. Terminá casi siempre con una pregunta o una consigna para que el alumno responda.
+9. Todo el texto en inglés que quieras que practique, escribilo claro para poder leerlo en voz alta.
+Nunca rompas el personaje. No uses markdown de encabezados.`;
+}
+
+function geminiContents(){
+  return S.history.map(m=>({ role: m.role==="teacher"?"model":"user", parts:[{text:m.text}] }));
+}
+
+function extractNotes(text){
+  const lines = text.split("\n");
+  const kept=[];
+  lines.forEach(l=>{
+    const m = l.match(/^\s*APUNTE:\s*(.+)$/i);
+    if(m){ S.notes.push({t:m[1].trim(), when:Date.now()}); }
+    else kept.push(l);
+  });
+  if(S.notes.length>200) S.notes = S.notes.slice(-200);
+  return kept.join("\n").trim();
+}
+
+function addMsg(role, text){
+  const chat=document.getElementById("chat");
+  const d=document.createElement("div"); d.className="msg "+(role==="teacher"?"t":"u");
+  d.textContent=text;
+  if(role==="teacher"){
+    const say=document.createElement("div"); say.className="sayen"; say.innerHTML="🔊 Escuchar en inglés";
+    say.onclick=()=>{ const en = englishOf(text); speak(en||text,"en-US"); };
+    d.appendChild(say);
+  }
+  chat.appendChild(d);
+  window.scrollTo(0,document.body.scrollHeight);
+}
+// Heurística: leer en inglés las frases que parecen inglés (sin paréntesis en español)
+function englishOf(text){
+  const enLines = text.split("\n").filter(l=>/[a-z]/i.test(l) && !/[áéíóúñ¿¡]/i.test(l.replace(/\(.*?\)/g,"")));
+  return text; // dejamos que el navegador lea; en-US igual pronuncia razonable
+}
+
+let thinking=false;
+async function sendToTeacher(userText){
+  if(thinking) return;
+  if(userText){ S.history.push({role:"user",text:userText}); addMsg("user",userText); save(); }
+  thinking=true;
+  const chat=document.getElementById("chat");
+  const t=document.createElement("div"); t.className="typing"; t.textContent="Miss Clara está escribiendo…"; chat.appendChild(t);
+  window.scrollTo(0,document.body.scrollHeight);
+  try{
+    const raw = await gemini(teacherSystem(), geminiContents());
+    const clean = extractNotes(raw);
+    S.history.push({role:"teacher",text:clean}); save();
+    t.remove(); addMsg("teacher",clean);
+    speak(clean,"en-US");
+  }catch(e){
+    t.remove();
+    addMsg("teacher","Uy, tuve un problema para responder 😔. Revisá la conexión o la clave. ("+e.message.slice(0,60)+")");
+  }finally{ thinking=false; }
+}
+
+function startClass(){
+  show("v-class");
+  document.getElementById("topTitle").textContent="Clase con Miss Clara";
+  if(S.history.length===0){
+    sendToTeacher(`Hola, soy ${S.name}. Empecemos mi primera clase de nivel ${S.level}. Saludame y arranquemos con el primer tema.`);
+  }else{
+    document.getElementById("chat").innerHTML="";
+    S.history.forEach(m=>addMsg(m.role==="teacher"?"teacher":"user", m.text));
+  }
+}
+function quickSend(t){ sendToTeacher(t); }
+
+// micrófono en clase
+let classRecog=null, classRec=false;
+document.getElementById("micBtn").onclick=()=>{
+  if(!SR){ alert("Este navegador no soporta reconocimiento de voz. Usá Chrome en Android."); return; }
+  const btn=document.getElementById("micBtn"), hint=document.getElementById("micHint");
+  if(classRec){ classRecog && classRecog.stop(); return; }
+  classRecog = initRecog(); if(!classRecog) return;
+  classRec=true; btn.classList.add("rec"); btn.textContent="⏹️"; hint.textContent="Escuchando… hablá ahora 🎤";
+  classRecog.onresult=e=>{ const txt=e.results[0][0].transcript; document.getElementById("typeIn").value=txt; };
+  classRecog.onend=()=>{ classRec=false; btn.classList.remove("rec"); btn.textContent="🎤"; hint.textContent="Tocá el micrófono y hablá en inglés 🎤";
+    const v=document.getElementById("typeIn").value.trim(); if(v){ document.getElementById("typeIn").value=""; sendToTeacher(v); } };
+  classRecog.onerror=()=>{ classRec=false; btn.classList.remove("rec"); btn.textContent="🎤"; hint.textContent="No te escuché. Probá de nuevo 🎤"; };
+  try{ classRecog.start(); }catch(e){}
+};
+document.getElementById("sendBtn").onclick=()=>{
+  const i=document.getElementById("typeIn"); const v=i.value.trim(); if(!v) return; i.value=""; sendToTeacher(v);
+};
+document.getElementById("typeIn").addEventListener("keydown",e=>{ if(e.key==="Enter"){ document.getElementById("sendBtn").click(); }});
+
+document.getElementById("btnStartClass").onclick=startClass;
+
+/* ================= MENU / APUNTES ================= */
+document.getElementById("btnNotes").onclick=()=>{
+  const c=document.getElementById("notesCard"), b=document.getElementById("notesBody");
+  if(S.notes.length===0){ b.innerHTML="<p class='sub'>Todavía no hay apuntes. Van a aparecer solos a medida que Miss Clara te enseñe.</p>"; }
+  else{ b.innerHTML = S.notes.slice().reverse().map(n=>`<div class="note">${n.t}</div>`).join(""); }
+  c.style.display="block"; c.scrollIntoView({behavior:"smooth"});
+};
+document.getElementById("btnReplan").onclick=()=>{ if(confirm("¿Rehacer el test de nivel? Tu clase actual se mantiene.")) startTest(); };
+document.getElementById("btnReset").onclick=()=>{
+  if(confirm("Esto borra el nombre, el nivel, la clase y los apuntes de este dispositivo. ¿Seguro?")){
+    const key=S.key; localStorage.removeItem(LS); S={key,name:"",goal:"",level:"",plan:null,history:[],notes:[]}; save(); boot();
+  }
+};
+
+/* ================= Boot ================= */
+function routeAfterKey(){
+  if(!S.name){ show("v-profile"); return; }
+  if(!S.level){ startTest(); return; }
+  if(S.history.length>0){ startClass(); return; }
+  if(S.plan){ renderPlan(S.plan); return; }
+  startTest();
+}
+function boot(){
+  if(!S.key){ show("v-setup"); return; }
+  routeAfterKey();
+}
+boot();
+</script>
+</body>
+</html>
