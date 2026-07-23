@@ -18,14 +18,13 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 ## ✅ Hecho (nuevas)
 - **P1 · Roleplays / escenarios** (café, médico, aeropuerto, teléfono, restaurante, compras, direcciones, presentarse) — la IA hace de personaje y corrige con TIP
 
-- **P2 · Logros / insignias / XP** — 10 insignias, puntos, niveles, avisos (toast) al desbloquear
+- **P2 · Logros / insignias / XP** — 12 insignias, puntos, niveles, avisos (toast) al desbloquear
+- **P3 · Camino de lecciones por nivel** — 10 lecciones por nivel (A1–C1), progreso, desbloqueo lineal, +20 XP por lección
 
 ## 🔨 En progreso
-- (nada abierto)
+- **P4 · Feedback de pronunciación** — comparar dicho vs. correcto (ELSA)
 
 ## ⏳ Próximo (priorizado)
-- **P3 · Camino de lecciones por nivel** — sensación de avance (Babbel/Duolingo)
-- **P4 · Feedback de pronunciación** — comparar dicho vs. correcto (ELSA)
 - **P5 · Historias / lecturas graduadas** — input comprensible (Duolingo Stories/LingQ)
 
 ## Notas
