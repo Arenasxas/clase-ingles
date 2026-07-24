@@ -111,6 +111,20 @@
   .toast.show{opacity:1;transform:translate(-50%,0)}
   .asent{border-radius:5px;transition:background .2s}
   .asent.on{background:#fbe7bf;box-shadow:0 0 0 3px #fbe7bf}
+  .callscreen{min-height:calc(100vh - 40px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;background:linear-gradient(160deg,var(--brand-dark),#173f38);border-radius:20px;padding:30px 18px;color:#fff}
+  .callava{width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:62px;transition:.3s}
+  .callava.speak,.callava.listen{animation:cpulse 1.2s infinite}
+  @keyframes cpulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.35)}70%{box-shadow:0 0 0 26px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+  .callstatus{font-size:18px;font-weight:700;opacity:.95;min-height:26px}
+  .callcap{font-size:20px;line-height:1.5;max-width:36ch;margin:6px 0;min-height:30px}
+  .callyou{font-size:15px;opacity:.75;font-style:italic;min-height:20px;max-width:36ch}
+  .callbtns{display:flex;gap:22px;margin-top:22px;align-items:center}
+  .callbtn{width:64px;height:64px;border-radius:50%;border:none;font-size:26px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center}
+  .callbtn.hang{background:#d33;width:76px;height:76px;font-size:34px;transform:rotate(133deg)}
+  .callbtn.rep,.callbtn.talk{background:rgba(255,255,255,.2)}
+  .callbtn:active{transform:scale(.94)}
+  .callbtn.hang:active{transform:rotate(133deg) scale(.94)}
+  .callhint{font-size:13px;opacity:.7;margin-top:16px}
 </style>
 </head>
 <body>
@@ -230,6 +244,7 @@
         <p class="hint" id="goalHint"></p>
       </div>
       <button class="btn big" id="btnTodayClass">🎓 Clase de hoy</button>
+      <button class="btn big" onclick="startCall()" style="margin-top:10px;background:var(--accent);color:#3a2a08">📞 Clase por llamada (voz en vivo)</button>
       <div class="row" style="margin-top:12px">
         <button class="btn sec" onclick="openRepaso()" style="margin:0">🃏 Repaso<span id="repasoCount"></span></button>
         <button class="btn sec" onclick="openJuegos()" style="margin:0">🎮 Juegos</button>
@@ -338,6 +353,11 @@
     <!-- DICCIONARIO -->
     <section class="view" id="v-dicc">
       <div id="diccBox"></div>
+    </section>
+
+    <!-- LLAMADA / VOZ EN VIVO -->
+    <section class="view" id="v-call">
+      <div id="callBox"></div>
     </section>
 
     <!-- APUNTES -->
@@ -467,7 +487,7 @@ function show(id){
   audioPlaying=false; if(window.speechSynthesis) speechSynthesis.cancel();
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-  const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan","v-guide","v-prefs"].includes(id);
+  const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan","v-guide","v-prefs","v-call"].includes(id);
   document.getElementById("topbar").style.display = inApp ? "flex" : "none";
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
@@ -702,6 +722,7 @@ REGLAS:
 Nunca rompas el personaje ni uses encabezados markdown.`;
 }
 let mode="class", roleHistory=[], roleScn=null, lessonHistory=[], lessonScn=null;
+var callHistory=[], callRec=null, callActive=false, callState="idle", callSilent=0;
 function curHist(){ return mode==="role"?roleHistory : mode==="lesson"?lessonHistory : S.history; }
 function curSystem(){ return mode==="role"?roleSystem() : mode==="lesson"?lessonSystem() : teacherSystem(); }
 function geminiContents(){ return curHist().map(m=>({role:m.role==="teacher"?"model":"user",parts:[{text:m.text}]})); }
@@ -1335,6 +1356,83 @@ async function diccSearch(){
   }catch(e){ res.innerHTML=`<div class="note" style="margin-top:12px">${e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana.":"No pude buscar esa palabra. Probá de nuevo."}</div>`; }
 }
 function diccSave(){ if(diccData&&diccData.word){ addCard(diccData.word,diccData.es,diccData.example_en||""); checkBadges(); save(); toast("➕ Guardada en tus tarjetas"); } }
+
+/* ===== LLAMADA / VOZ EN VIVO ===== */
+function callSystem(){
+  return `Sos "Miss Clara", profesora de inglés NATIVA experta (C2, formación TEFL/CELTA), en una LLAMADA de voz con ${S.name} (nivel ${S.level} MCER, hispanohablante mayor). Es una CLASE hablada, como una llamada telefónica.
+REGLAS:
+1. Hablás como en una charla real por teléfono: natural, cálida, frases CORTAS (1 a 3 oraciones), y SIEMPRE terminás con una pregunta o consigna para que ${S.name} hable.
+2. Adaptá el inglés al nivel ${S.level}: en A1/A2 muy simple (podés meter alguna palabra en español si hace falta); en B1+ más inglés.
+3. Si comete un error importante, corregilo en 1 frase corta y amable y seguí la charla sin cortarla.
+4. Es una clase: enseñá de a poco, hacela practicar hablando, dale ánimo.
+5. Es VOZ: nada de listas, markdown, ni las palabras APUNTE/VOCAB/ERROR. Hablá natural y breve (se lee en voz alta).`;
+}
+function renderCallUI(){
+  document.getElementById("callBox").innerHTML=`<div class="callscreen">
+    <div class="callava" id="callAva">👩‍🏫</div>
+    <h2 style="color:#fff;margin:6px 0">Miss Clara</h2>
+    <div class="callstatus" id="callStatus">Conectando…</div>
+    <div class="callcap" id="callCap"></div>
+    <div class="callyou" id="callYou"></div>
+    <div class="callbtns">
+      <button class="callbtn rep" onclick="callRepeat()" title="Repetir">🔁</button>
+      <button class="callbtn hang" onclick="hangUp()" title="Colgar">📞</button>
+      <button class="callbtn talk" onclick="callListen()" title="Hablar">🎤</button>
+    </div>
+    <p class="callhint">Cuando diga "Te escucho", hablá en inglés. Tocá 📞 para colgar.</p></div>`;
+}
+function setCallState(s){
+  callState=s; const st=document.getElementById("callStatus"), av=document.getElementById("callAva"); if(!st) return;
+  av.classList.remove("speak","listen");
+  if(s==="speaking"){ st.textContent="Miss Clara habla… 🔊"; av.classList.add("speak"); }
+  else if(s==="listening"){ st.textContent="Te escucho… hablá 🎤"; av.classList.add("listen"); }
+  else if(s==="thinking"){ st.textContent="Pensando…"; }
+  else if(s==="error"){ st.textContent="⚠️"; }
+  else st.textContent="";
+}
+function callCap(t){ const el=document.getElementById("callCap"); if(el) el.textContent=t; }
+function callYou(t){ const el=document.getElementById("callYou"); if(el) el.textContent=t?("Vos: "+t):""; }
+function startCall(){
+  if(!SR){ alert("La llamada necesita micrófono. Usá Chrome en Android."); return; }
+  mode="call"; callActive=true; callHistory=[]; callSilent=0;
+  show("v-call"); renderCallUI();
+  try{ speechSynthesis.speak(new SpeechSynthesisUtterance(" ")); }catch(e){} // desbloquea audio en el gesto
+  setCallState("thinking"); callCap("Conectando con Miss Clara…");
+  callTurn(`Empezá la clase por llamada: saludame en inglés simple y hacé tu primera pregunta para que yo hable.`);
+}
+async function callTurn(userText){
+  if(!callActive) return;
+  if(userText) callHistory.push({role:"user",text:userText});
+  setCallState("thinking");
+  try{
+    const contents=callHistory.map(m=>({role:m.role==="teacher"?"model":"user",parts:[{text:m.text}]}));
+    const raw=await gemini(callSystem(),contents);
+    if(!callActive) return;
+    callHistory.push({role:"teacher",text:raw}); bumpInter(); checkBadges(); save();
+    speakCall(raw);
+  }catch(e){ if(callActive){ setCallState("error"); callCap(e.message==="LIMITE"?"Se terminó la clase por hoy 😊. ¡Mañana seguimos! Colgá con 📞.":"Hubo un problema. Colgá con 📞 y probá de nuevo."); } }
+}
+function speakCall(text){
+  setCallState("speaking"); callCap(text); callYou("");
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text); u.lang="en-US"; u.rate=0.9;
+  const v=voices.find(v=>v.lang==="en-US")||voices.find(v=>v.lang.startsWith("en")); if(v) u.voice=v;
+  u.onend=()=>{ if(callActive) callListen(); };
+  u.onerror=()=>{ if(callActive) callListen(); };
+  speechSynthesis.speak(u);
+}
+function callListen(){
+  if(!callActive) return;
+  if(!SR){ setCallState("error"); callCap("Este teléfono no permite el micrófono. Usá Chrome en Android."); return; }
+  setCallState("listening");
+  callRec=initRecog(); if(!callRec) return; let got=false;
+  callRec.onresult=e=>{ got=true; callSilent=0; const txt=e.results[0][0].transcript; callYou(txt); callTurn(txt); };
+  callRec.onend=()=>{ if(callActive && !got && callState==="listening"){ callSilent++; if(callSilent<6) callListen(); else { setCallState("idle"); const st=document.getElementById("callStatus"); if(st) st.textContent="¿Seguimos? Tocá 🎤 para hablar"; callSilent=0; } } };
+  callRec.onerror=ev=>{ if(!callActive) return; if(ev.error!=="no-speech" && ev.error!=="aborted"){ setCallState("idle"); const st=document.getElementById("callStatus"); if(st) st.textContent="Tocá 🎤 para hablar"; } };
+  try{ callRec.start(); }catch(e){}
+}
+function callRepeat(){ const last=[...callHistory].reverse().find(m=>m.role==="teacher"); if(last) speakCall(last.text); }
+function hangUp(){ callActive=false; mode="class"; if(callRec){ try{callRec.stop();}catch(e){} } if(window.speechSynthesis) speechSynthesis.cancel(); renderHome(); show("v-home"); }
 
 /* ===== Boot ===== */
 function routeAfterKey(){

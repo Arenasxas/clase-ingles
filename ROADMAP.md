@@ -34,9 +34,12 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 - **🔎 Diccionario** — buscar palabra (inglés o español): traducción, significado, ejemplo, pronunciación y audio; guardar en tarjetas
 - **Profe experto** — prompt reforzado: profesora nativa C2 con formación TEFL/CELTA, sin inventar
 
+## ✅ Hecho (extra)
+- **📞 Clase por llamada (voz en vivo)** — modo manos libres tipo llamada telefónica: escucha → IA → habla en bucle automático, con pantalla de llamada, subtítulos y botón colgar. Clase hablada natural. Usa Web Speech (gratis), no Gemini Live.
+
 ## 💡 Ideas futuras
 - Subir foto de un texto/cartel para practicar (OCR)
-- Voz en tiempo real (Gemini Live API) — experiencia tipo llamada
+- Migrar la llamada a Gemini Live API (audio nativo, menos eco) si se quiere calidad tipo teléfono real
 
 ## ⏳ Próximo (priorizado)
 
