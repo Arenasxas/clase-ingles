@@ -29,9 +29,13 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 ## ✅ Hecho (extra)
 - **🎧 Solo escuchar / audio-clases** — la IA arma una mini-clase hablada del tema, se reproduce manos libres con resaltado del texto (read-along), guarda apunte en español y suma vocabulario a las tarjetas
 
+## ✅ Hecho (extra)
+- **🩹 Repaso de errores frecuentes** — la profe marca cada error (ERROR: mal === bien === por qué), se guarda y ordena por frecuencia; modo "practicar mis errores"
+- **🔎 Diccionario** — buscar palabra (inglés o español): traducción, significado, ejemplo, pronunciación y audio; guardar en tarjetas
+- **Profe experto** — prompt reforzado: profesora nativa C2 con formación TEFL/CELTA, sin inventar
+
 ## 💡 Ideas futuras
 - Subir foto de un texto/cartel para practicar (OCR)
-- Repaso de errores frecuentes
 - Voz en tiempo real (Gemini Live API) — experiencia tipo llamada
 
 ## ⏳ Próximo (priorizado)

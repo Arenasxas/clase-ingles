@@ -238,6 +238,10 @@
       <button class="btn sec" onclick="openRoleplay()" style="margin-top:10px">🎭 Situaciones reales</button>
       <button class="btn sec" onclick="openHistorias()" style="margin-top:10px">📖 Historias y lecturas</button>
       <button class="btn sec" onclick="openAudio()" style="margin-top:10px">🎧 Solo escuchar (audio-clases)</button>
+      <div class="row" style="margin-top:10px">
+        <button class="btn sec" onclick="openErrores()" style="margin:0">🩹 Mis errores<span id="errCount"></span></button>
+        <button class="btn sec" onclick="openDicc()" style="margin:0">🔎 Diccionario</button>
+      </div>
       <p class="hint center" id="usageHint" style="margin-top:10px"></p>
       <div class="grid" style="margin-top:16px">
         <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
@@ -326,6 +330,16 @@
       <div id="audioBox"></div>
     </section>
 
+    <!-- ERRORES -->
+    <section class="view" id="v-errores">
+      <div id="errBox"></div>
+    </section>
+
+    <!-- DICCIONARIO -->
+    <section class="view" id="v-dicc">
+      <div id="diccBox"></div>
+    </section>
+
     <!-- APUNTES -->
     <section class="view" id="v-notes">
       <div class="card">
@@ -387,7 +401,7 @@ const LS = "claseIngles.v2";
 const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, history:[],
   notes:[], goalsDone:{}, dailyGoal:5,
   prefs:{style:[],styleMore:"",objective:""}, material:"", seenGuide:false,
-  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0,
+  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0, errors:[],
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" } };
 let S = migrate(load()) || structuredClone(DEFAULT);
@@ -458,7 +472,7 @@ function show(id){
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
     "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes",
-    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar" };
+    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar","v-errores":"Mis errores","v-dicc":"Diccionario" };
   document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
@@ -650,6 +664,7 @@ function renderHome(){
   document.getElementById("tLogros").textContent=`${Object.keys(S.badges||{}).length}/${BADGES.length}`;
   const clv=S.level||"A1", cll=LESSONS[clv]||LESSONS.A1, cdc=cll.filter((_,i)=>(S.lessonsDone||{})[`${clv}:${i}`]).length;
   document.getElementById("caminoProg").textContent=`(${cdc}/${cll.length})`;
+  const ec=(S.errors||[]).length; document.getElementById("errCount").textContent=ec?` (${ec})`:"";
   const ti=todayInter(); const pct=Math.min(100,Math.round(ti.inter/S.dailyGoal*100));
   document.getElementById("goalBar").style.width=pct+"%";
   document.getElementById("goalChip").textContent=`${Math.min(ti.inter,S.dailyGoal)}/${S.dailyGoal}`;
@@ -669,7 +684,7 @@ function teacherSystem(){
   const mas=p.styleMore?`Pedido extra sobre las clases: ${p.styleMore}.`:"";
   const obj=p.objective?`Lo que quiere lograr: ${p.objective}.`:"";
   const mat=S.material?`\nMATERIAL QUE APORTÓ LA ALUMNA (canciones, textos, vocabulario o temas propios). Usalo como base para ejemplos, lecturas y ejercicios cuando venga bien, adaptándolo a su nivel:\n"""${S.material.slice(0,4000)}"""\n`:"";
-  return `Sos "Miss Clara", profesora de inglés paciente, cálida y profesional, que le da clases particulares a ${S.name}, persona mayor hispanohablante de nivel ${S.level} (MCER).
+  return `Sos "Miss Clara", profesora de inglés NATIVA y experta (dominio C2, con formación TEFL/CELTA en enseñanza de inglés como lengua extranjera). Conocés a la perfección la gramática, la fonética, el vocabulario y el uso real del inglés, y explicás con precisión profesional, sin errores ni información inventada. Sos paciente y cálida. Le das clases particulares a ${S.name}, persona mayor hispanohablante de nivel ${S.level} (MCER).
 Objetivo de ${S.name}: ${S.goal||"aprender inglés general"}. Tema inicial sugerido: ${S.plan?.firstLessonTopic||"Saludos"}.
 PREFERENCIAS DE LA ALUMNA (respetalas): ${estilo} ${mas} ${obj}${mat}
 REGLAS:
@@ -680,6 +695,7 @@ REGLAS:
 5. Proponé mini-ejercicios y esperá la respuesta antes de seguir.
 6. Cuando des algo clave para recordar (regla, frase útil), empezá esa línea con "APUNTE:" y el contenido en una sola línea. Usá APUNTE varias veces por clase.
 6b. Cada palabra o frase NUEVA en inglés que enseñes, agregala en una línea aparte con este formato EXACTO: "VOCAB: english === español === ejemplo corto en inglés". Al menos 2-3 VOCAB por clase. Esto alimenta las tarjetas de repaso de la alumna.
+6c. Cuando ${S.name} cometa un error real de gramática, vocabulario o uso, además de corregirlo en el texto, agregá una línea aparte con el formato EXACTO: "ERROR: lo que dijo mal === forma correcta === explicación breve en español". Solo errores reales, no de tipeo. Esto alimenta el repaso de errores.
 7. Respuestas cortas: máximo 5-6 líneas. Preguntá seguido.
 8. Terminá casi siempre con una pregunta o consigna.
 9. El inglés a practicar, escribilo claro para leerlo en voz alta.
@@ -701,10 +717,20 @@ function gradeCard(card,ok){
   card.box = ok ? Math.min(5,card.box+1) : 1;
   card.due = Date.now() + BOX_DAYS[card.box]*86400000 + (ok?0:0);
 }
+function addError(wrong,right,why){
+  wrong=(wrong||"").replace(/^[❌\s]+/,"").trim(); right=(right||"").replace(/^[✅\s]+/,"").trim(); why=(why||"").trim();
+  if(!right) return;
+  const ex=(S.errors||[]).find(e=>e.right.toLowerCase()===right.toLowerCase());
+  if(ex){ ex.count++; ex.when=Date.now(); if(why) ex.why=why; }
+  else { S.errors=S.errors||[]; S.errors.push({wrong,right,why,count:1,when:Date.now()}); }
+  if(S.errors.length>200) S.errors=S.errors.slice(-200);
+}
 function extractNotes(text){
   const kept=[]; text.split("\n").forEach(l=>{
     const v=l.match(/^\s*VOCAB:\s*(.+)$/i);
     if(v){ const p=v[1].split("==="); if(p.length>=2) addCard(p[0],p[1],p[2]); return; }
+    const er=l.match(/^\s*ERROR:\s*(.+)$/i);
+    if(er){ const p=er[1].split("==="); if(p.length>=2){ addError(p[0],p[1],p[2]); kept.push(`📝 ❌ ${p[0].trim()} → ✅ ${p[1].trim()}${p[2]?" — "+p[2].trim():""}`); } return; }
     const m=l.match(/^\s*APUNTE:\s*(.+)$/i);
     if(m){ S.notes.push({t:m[1].trim(),when:Date.now()}); return; }
     kept.push(l);
@@ -997,7 +1023,7 @@ Tu personaje: ${s.role}.
 REGLAS:
 1. Hablás SIEMPRE en inglés, simple y acorde al nivel ${S.level}: frases cortas y claras.
 2. Mantené el personaje y hacé avanzar la escena con preguntas propias del rol (tomar el pedido, pedir el pasaporte, etc.).
-3. Si ${S.name} comete un error importante, al FINAL agregá una línea que empiece con "TIP:" con la corrección breve en español (❌ lo que dijo → ✅ lo correcto). Si estuvo bien, no agregues TIP.
+3. Si ${S.name} comete un error importante, al FINAL agregá una línea con el formato EXACTO: "ERROR: lo que dijo mal === forma correcta === explicación breve en español". Si estuvo bien, no la agregues.
 4. Máximo 3-4 líneas por turno. Paciencia y calidez. Nunca rompas el personaje salvo en la línea TIP.
 Empezá vos, en personaje, con el saludo de la escena.`;
 }
@@ -1250,6 +1276,65 @@ function finishOrEnd(){
   if(mode==="lesson") finishLesson();
   else quickSend('Terminemos la clase de hoy con un resumen corto de lo que aprendí');
 }
+
+/* ===== REPASO DE ERRORES ===== */
+let errQueue=[], errIdx=0, errShow=false;
+function openErrores(){
+  const box=document.getElementById("errBox"); const errs=(S.errors||[]).slice().sort((a,b)=>b.count-a.count);
+  if(!errs.length){ box.innerHTML=`<div class="card"><h2>🩹 Mis errores</h2><p class="sub">Todavía no hay errores registrados. A medida que practiques en las clases y situaciones, tus errores frecuentes van a aparecer acá para repasarlos.</p><button class="btn" onclick="startClass()">Ir a una clase</button></div>`; show("v-errores"); return; }
+  box.innerHTML=`<div class="card"><h2>🩹 Mis errores frecuentes</h2><p class="sub">Lo que más te conviene reforzar, ordenado por frecuencia.</p><button class="btn" onclick="practiceErrors()">🎯 Practicar mis errores</button></div><div class="card" id="errList"></div>`;
+  const list=document.getElementById("errList");
+  errs.forEach(e=>{ const d=document.createElement("div"); d.className="note";
+    d.innerHTML=`<span style="color:var(--err)">❌ ${e.wrong||"(algo)"}</span> → <b style="color:var(--brand-dark)">✅ ${e.right}</b> <span style="font-size:13px;color:var(--muted)">· ${e.count}×</span>${e.why?`<br><span style="font-size:14px;color:var(--muted)">${e.why}</span>`:""}`;
+    const br=document.createElement("br"); const s=document.createElement("span"); s.className="sayen"; s.textContent="🔊 Escuchar"; s.onclick=()=>speak(e.right,"en-US");
+    d.appendChild(br); d.appendChild(s); list.appendChild(d); });
+  show("v-errores");
+}
+function practiceErrors(){ errQueue=(S.errors||[]).slice().sort((a,b)=>b.count-a.count).slice(0,15); errIdx=0; errShow=false; renderErrPractice(); }
+function renderErrPractice(){
+  const box=document.getElementById("errBox");
+  if(errIdx>=errQueue.length){ box.innerHTML=`<div class="card center"><h2>¡Listo! 🌟</h2><p class="sub">Repasaste tus errores. Cuanto más practiques, menos se repiten.</p><button class="btn" onclick="openErrores()">Volver</button></div>`; return; }
+  const e=errQueue[errIdx];
+  box.innerHTML=`<div class="card center">
+    <p class="hint">${errIdx+1} de ${errQueue.length}</p>
+    <p class="sub">¿Cómo se dice bien?</p>
+    <h3 style="color:var(--err);font-size:22px">❌ ${e.wrong||"(pensá la forma correcta)"}</h3>
+    ${errShow?`<div style="margin-top:12px"><div style="font-size:22px;font-weight:700;color:var(--brand-dark)">✅ ${e.right}</div>${e.why?`<div class="note">${e.why}</div>`:""}<div class="sayen" style="justify-content:center" onclick="speak(errQueue[errIdx].right,'en-US')">🔊 Escuchar</div></div>
+      <button class="btn" onclick="errNext()">Siguiente →</button>`
+    :`<button class="btn" onclick="errReveal()">Ver forma correcta</button>`}
+    <button class="btn ghost" onclick="openErrores()">← Volver</button></div>`;
+}
+function errReveal(){ errShow=true; if(errQueue[errIdx]) speak(errQueue[errIdx].right,"en-US"); renderErrPractice(); }
+function errNext(){ errShow=false; errIdx++; bumpInter(); renderErrPractice(); }
+
+/* ===== DICCIONARIO ===== */
+var diccData=null;
+function openDicc(){
+  document.getElementById("diccBox").innerHTML=`<div class="card"><h2>🔎 Diccionario</h2>
+    <p class="sub">Buscá una palabra en inglés o en español. Te doy traducción, significado, ejemplo y cómo suena.</p>
+    <div class="typerow"><input type="text" id="diccIn" placeholder="Ej: house  /  casa" autocomplete="off"><button class="btn send" onclick="diccSearch()">🔎</button></div>
+    <div id="diccResult"></div></div>`;
+  const inp=document.getElementById("diccIn"); inp.onkeydown=e=>{ if(e.key==="Enter") diccSearch(); };
+  show("v-dicc"); inp.focus();
+}
+async function diccSearch(){
+  const q=document.getElementById("diccIn").value.trim(); if(!q) return;
+  const res=document.getElementById("diccResult");
+  res.innerHTML=`<div class="center" style="padding:16px"><div class="spin dark" style="width:30px;height:30px;border-width:4px"></div></div>`;
+  try{
+    const raw=await gemini(`Sos un diccionario inglés-español experto y preciso. Respondé SOLO JSON.`,
+      [{role:"user",parts:[{text:`Definí la palabra o frase "${q}". Si está en español dame el inglés; si está en inglés dame el español. JSON: {"word":"la palabra/frase en inglés","es":"traducción al español","meaning":"significado o definición en español, claro y corto","example_en":"ejemplo de uso en inglés","example_es":"traducción del ejemplo al español","pron_es":"cómo suena, escrito para un hispanohablante"}`}]}],true);
+    diccData=JSON.parse(raw);
+    res.innerHTML=`<div class="card" style="margin-top:12px;box-shadow:none;border-color:var(--brand)">
+      <h2 style="margin-bottom:2px">${diccData.word} <span class="sayen" style="display:inline-flex" onclick="speak(diccData.word,'en-US')">🔊</span></h2>
+      ${diccData.pron_es?`<p style="color:var(--muted);margin:0 0 8px">suena "${diccData.pron_es}"</p>`:""}
+      <div><b>Español:</b> ${diccData.es}</div>
+      <div style="margin-top:6px"><b>Significado:</b> ${diccData.meaning}</div>
+      ${diccData.example_en?`<div class="note" style="margin-top:10px"><i>${diccData.example_en}</i> <span class="sayen" style="display:inline-flex" onclick="speak(diccData.example_en,'en-US')">🔊</span><br><span style="color:var(--muted);font-size:14px">${diccData.example_es||""}</span></div>`:""}
+      <button class="btn" onclick="diccSave()">➕ Guardar en tarjetas</button></div>`;
+  }catch(e){ res.innerHTML=`<div class="note" style="margin-top:12px">${e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana.":"No pude buscar esa palabra. Probá de nuevo."}</div>`; }
+}
+function diccSave(){ if(diccData&&diccData.word){ addCard(diccData.word,diccData.es,diccData.example_en||""); checkBadges(); save(); toast("➕ Guardada en tus tarjetas"); } }
 
 /* ===== Boot ===== */
 function routeAfterKey(){
