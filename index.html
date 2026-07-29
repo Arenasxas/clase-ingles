@@ -416,6 +416,7 @@
       <div class="card">
         <button class="btn sec" id="btnReplan">🔄 Rehacer test de nivel</button>
         <button class="btn sec" id="btnChangeKey">🔑 Cambiar clave de Gemini</button>
+        <button class="btn ghost" id="btnRestoreBackup">🛟 Restaurar copia anterior</button>
         <button class="btn ghost" id="btnReset" style="color:var(--err)">🗑️ Borrar todo y empezar de cero</button>
       </div>
     </section>
@@ -432,12 +433,45 @@ const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, histo
   deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0, errors:[], photosRead:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" } };
+function backupOnce(){
+  // Copia de seguridad de UNA sola vez, antes de que cualquier migracion toque los datos reales.
+  try{
+    if(!localStorage.getItem("claseIngles.backup")){
+      const raw=localStorage.getItem(LS);
+      if(raw) localStorage.setItem("claseIngles.backup", raw);
+    }
+  }catch(e){}
+}
+backupOnce();
+// Merge recursivo: para cada campo de DEFAULT, si el guardado lo tiene lo usa, si no, el default.
+// Objetos "diccionario" (default {} sin campos fijos, ej. badges/goalsDone/lessonsDone) se preservan enteros.
+function deepDefaults(def, val){
+  if(Array.isArray(def)) return Array.isArray(val) ? val : structuredClone(def);
+  if(def && typeof def==="object"){
+    const keys=Object.keys(def);
+    if(keys.length===0) return (val && typeof val==="object" && !Array.isArray(val)) ? val : structuredClone(def);
+    const src=(val && typeof val==="object" && !Array.isArray(val)) ? val : {};
+    const out={};
+    keys.forEach(k=>{ out[k]=deepDefaults(def[k], src[k]); });
+    return out;
+  }
+  return (val===undefined) ? def : val;
+}
+// Escapa texto de la IA/usuario antes de meterlo con innerHTML (nunca confiar en ese texto como HTML).
+function escapeHtml(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 let S = migrate(load()) || structuredClone(DEFAULT);
 function load(){ try{return JSON.parse(localStorage.getItem(LS)) || JSON.parse(localStorage.getItem("claseIngles.v1"))}catch(e){return null} }
-function migrate(o){ if(!o) return null; return Object.assign(structuredClone(DEFAULT), o,
-  {stats:Object.assign(structuredClone(DEFAULT.stats),o.stats||{}), rem:Object.assign(structuredClone(DEFAULT.rem),o.rem||{}),
-   prefs:Object.assign(structuredClone(DEFAULT.prefs),o.prefs||{})}); }
-function save(){ localStorage.setItem(LS, JSON.stringify(S)); }
+function migrate(o){ if(!o) return null; return deepDefaults(DEFAULT, o); }
+function trimHistory(){ if(S.history && S.history.length>40) S.history=S.history.slice(-40); }
+function save(){
+  trimHistory();
+  try{ localStorage.setItem(LS, JSON.stringify(S)); return; }catch(e){ if(!e || e.name!=="QuotaExceededError") return; }
+  // Poda progresiva si se llena el almacenamiento del celular (limite ~5MB).
+  try{ S.history=S.history.slice(-10); localStorage.setItem(LS, JSON.stringify(S)); return; }catch(e){}
+  try{ S.notes=S.notes.slice(-100); localStorage.setItem(LS, JSON.stringify(S)); return; }catch(e){}
+  try{ S.deck=S.deck.slice(-200); localStorage.setItem(LS, JSON.stringify(S)); toast("Se liberó espacio guardado (se recortaron datos viejos)."); }
+  catch(e){ console.error("No se pudo guardar ni podando", e); }
+}
 
 /* ===== Fechas / racha ===== */
 function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
@@ -585,7 +619,8 @@ document.getElementById("btnSaveKey").onclick=async()=>{
 document.getElementById("btnProfile").onclick=()=>{
   const n=document.getElementById("uname").value.trim();
   if(!n){ document.getElementById("uname").focus(); return; }
-  S.name=n; S.goal=document.getElementById("ugoal").value.trim(); save(); openGuide(false);
+  S.name=n; S.goal=document.getElementById("ugoal").value.trim(); save();
+  if(S.seenGuide) startTest(); else openGuide(false);
 };
 
 /* ===== TEST ===== */
@@ -631,8 +666,14 @@ function openQuestion(){
   const go=document.createElement("button"); go.className="btn"; go.textContent="Ver mi resultado";
   go.onclick=()=>evaluate(ta.value.trim()); box.appendChild(go);
 }
-function scoreLevel(){ let pts=0; answers.forEach(a=>{ if(a.correct) pts++; });
-  if(pts<=2) return "A1"; if(pts<=4) return "A2"; if(pts<=6) return "B1"; if(pts<=8) return "B2"; return "C1"; }
+function scoreLevel(){
+  const levels=["A1","A2","B1","B2","C1"];
+  let pts=0, maxLvlCorrect=0;
+  answers.forEach(a=>{ if(a.correct){ pts++; if(a.lvl>maxLvlCorrect) maxLvlCorrect=a.lvl; } });
+  const byCount = pts<=2?0:pts<=4?1:pts<=6?2:pts<=8?3:4;
+  const byLvl = Math.max(0, maxLvlCorrect-1); // acertar una pregunta de lvl 5 (C1) pesa aunque fallen otras mas faciles
+  return levels[Math.max(byCount, byLvl)];
+}
 async function evaluate(openText){
   show("v-eval");
   const rough=scoreLevel(); const correctas=answers.filter(a=>a.correct).length;
@@ -656,9 +697,9 @@ Ajustá el nivel con el texto libre.`;
 function renderPlan(d){
   document.getElementById("planHi").textContent=`¡Muy bien, ${S.name}! 🌟`;
   document.getElementById("planLvl").textContent=`Nivel ${d.level} · ${d.levelName||""}`;
-  let h=`<p>${d.summary||""}</p>`;
-  if(d.goals?.length){ h+=`<label>🎯 Tus objetivos</label>`+d.goals.map(g=>`<div class="note">${g}</div>`).join(""); }
-  if(d.plan?.length){ h+=`<label>🗺️ Tu plan</label>`+d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${p}</div>`).join(""); }
+  let h=`<p>${escapeHtml(d.summary||"")}</p>`;
+  if(d.goals?.length){ h+=`<label>🎯 Tus objetivos</label>`+d.goals.map(g=>`<div class="note">${escapeHtml(g)}</div>`).join(""); }
+  if(d.plan?.length){ h+=`<label>🗺️ Tu plan</label>`+d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${escapeHtml(p)}</div>`).join(""); }
   document.getElementById("planBody").innerHTML=h; show("v-plan");
 }
 document.getElementById("btnPlanNext").onclick=()=>openPrefs();
@@ -841,7 +882,7 @@ function openGoals(){
   const list=document.getElementById("goalsList"); const goals=S.plan?.goals||[];
   list.innerHTML = goals.length? goals.map((g,i)=>{
     const on=S.goalsDone[i]?"on":"";
-    return `<div class="checkline" onclick="toggleGoal(${i})"><div class="checkbox ${on}">${S.goalsDone[i]?"✓":""}</div><div>${g}</div></div>`;
+    return `<div class="checkline" onclick="toggleGoal(${i})"><div class="checkbox ${on}">${S.goalsDone[i]?"✓":""}</div><div>${escapeHtml(g)}</div></div>`;
   }).join("") : "<p class='sub'>Todavía no hay metas. Hacé el test de nivel.</p>";
   document.getElementById("pStreak").textContent=S.stats.best;
   document.getElementById("pDays").textContent=S.stats.days.length;
@@ -854,7 +895,7 @@ function toggleGoal(i){ S.goalsDone[i]=!S.goalsDone[i]; save(); openGoals(); }
 /* ===== APUNTES ===== */
 function openNotes(){
   const b=document.getElementById("notesBody");
-  b.innerHTML = S.notes.length? S.notes.slice().reverse().map(n=>`<div class="note">${n.t}</div>`).join("")
+  b.innerHTML = S.notes.length? S.notes.slice().reverse().map(n=>`<div class="note">${escapeHtml(n.t)}</div>`).join("")
     : "<p class='sub'>Todavía no hay apuntes. Van a aparecer solos cuando Miss Clara te enseñe.</p>";
   show("v-notes");
 }
@@ -862,8 +903,8 @@ function openNotes(){
 /* ===== PLAN VIEW ===== */
 function openPlanView(){
   const d=S.plan||{}; document.getElementById("pvLvl").textContent=`Nivel ${d.level||S.level} · ${d.levelName||""}`;
-  let h=`<p>${d.summary||""}</p>`;
-  if(d.plan?.length) h+=d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${p}</div>`).join("");
+  let h=`<p>${escapeHtml(d.summary||"")}</p>`;
+  if(d.plan?.length) h+=d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${escapeHtml(p)}</div>`).join("");
   document.getElementById("pvBody").innerHTML=h; show("v-planview");
 }
 
@@ -906,6 +947,13 @@ document.getElementById("btnReplan").onclick=()=>{ if(confirm("¿Rehacer el test
 document.getElementById("btnChangeKey").onclick=()=>{ S.key=""; save(); show("v-setup"); };
 document.getElementById("btnReset").onclick=()=>{ if(confirm("Esto borra nombre, nivel, clase, metas y apuntes de este dispositivo. ¿Seguro?")){
   const key=S.key; localStorage.removeItem(LS); S=structuredClone(DEFAULT); S.key=key; save(); boot(); } };
+document.getElementById("btnRestoreBackup").onclick=()=>{
+  const b=localStorage.getItem("claseIngles.backup");
+  if(!b){ alert("No hay ninguna copia guardada todavía."); return; }
+  if(confirm("Esto reemplaza los datos actuales por la última copia guardada. ¿Segura?")){
+    localStorage.setItem(LS,b); location.reload();
+  }
+};
 
 /* ===== Helpers juegos ===== */
 function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
@@ -977,15 +1025,15 @@ async function gameCloze(){
 }
 function renderCloze(q){
   document.getElementById("juegosBox").innerHTML=`<div class="card"><h2>✍️ Completá</h2>
-    ${q.hint_es?`<p class="sub">${q.hint_es}</p>`:""}
-    <h3 style="font-size:22px">${q.sentence.replace("___","______")}</h3>
+    ${q.hint_es?`<p class="sub">${escapeHtml(q.hint_es)}</p>`:""}
+    <h3 style="font-size:22px">${escapeHtml(q.sentence.replace("___","______"))}</h3>
     <div id="clzOpts"></div><div id="clzFb"></div>
     <button class="btn ghost" onclick="renderJuegosHub()">← Volver</button></div>`;
   const od=document.getElementById("clzOpts");
   shuffle(q.options).forEach(o=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=o;
     b.onclick=()=>{ if(o.trim().toLowerCase()===q.answer.trim().toLowerCase()){ b.classList.add("sel"); b.textContent="✅ "+o;
       window.clzFull=q.sentence.replace("___",q.answer);
-      document.getElementById("clzFb").innerHTML=`<div class="note">✅ <b>${clzFull}</b> <span class="sayen" onclick="speak(clzFull,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameCloze()">Otra ✨</button>`; bumpInter(); }
+      document.getElementById("clzFb").innerHTML=`<div class="note">✅ <b>${escapeHtml(clzFull)}</b> <span class="sayen" onclick="speak(clzFull,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameCloze()">Otra ✨</button>`; bumpInter(); }
       else { b.style.borderColor="var(--err)"; b.textContent="❌ "+o; } };
     od.appendChild(b); });
 }
@@ -1003,7 +1051,7 @@ function renderScramble(q){
 function drawScramble(){
   const s=window.scr;
   document.getElementById("juegosBox").innerHTML=`<div class="card"><h2>🔤 Ordená la frase</h2>
-    <p class="sub">${s.es}</p>
+    <p class="sub">${escapeHtml(s.es)}</p>
     <div id="scrAns" style="min-height:48px;border:2px dashed var(--line);border-radius:12px;padding:8px;margin-bottom:10px"></div>
     <div id="scrPool"></div><div id="scrFb"></div>
     <button class="btn ghost" onclick="renderJuegosHub()">← Volver</button></div>`;
@@ -1015,7 +1063,7 @@ function drawScramble(){
     const ok=s.picked.join(" ")===s.target.join(" ");
     document.getElementById("scrFb").innerHTML= ok
       ?`<div class="note">✅ ¡Correcto! <span class="sayen" onclick="speak(scr.sentence,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameScramble()">Otra ✨</button>`
-      :`<div class="note">Casi. La correcta: <b>${s.sentence}</b> <span class="sayen" onclick="speak(scr.sentence,'en-US')">🔊</span></div><button class="btn sec" onclick="renderScramble({sentence:scr.sentence,es:scr.es})">Reintentar</button><button class="btn" onclick="gameScramble()">Otra ✨</button>`;
+      :`<div class="note">Casi. La correcta: <b>${escapeHtml(s.sentence)}</b> <span class="sayen" onclick="speak(scr.sentence,'en-US')">🔊</span></div><button class="btn sec" onclick="renderScramble({sentence:scr.sentence,es:scr.es})">Reintentar</button><button class="btn" onclick="gameScramble()">Otra ✨</button>`;
     if(ok) bumpInter();
   }
 }
@@ -1037,7 +1085,7 @@ function renderTranslate(q){
 function checkTranslate(){
   const norm=s=>s.trim().toLowerCase().replace(/[.!?,]/g,"");
   const ok=norm(document.getElementById("trIn").value)===norm(window.trg.en);
-  document.getElementById("trFb").innerHTML=`<div class="note">${ok?"✅ ¡Perfecto!":"Una forma correcta es:"} <b>${trg.en}</b> <span class="sayen" onclick="speak(trg.en,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameTranslate()">Otra ✨</button>`;
+  document.getElementById("trFb").innerHTML=`<div class="note">${ok?"✅ ¡Perfecto!":"Una forma correcta es:"} <b>${escapeHtml(trg.en)}</b> <span class="sayen" onclick="speak(trg.en,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameTranslate()">Otra ✨</button>`;
   if(ok) bumpInter();
 }
 
@@ -1115,14 +1163,14 @@ function renderAudioPlayer(){
   const s=audioLesson;
   audioSents=(s.script||"").split(/(?<=[.!?])\s+/).filter(x=>x.trim());
   audioIdx=0; audioPlaying=false;
-  const sents=audioSents.map((t,i)=>`<span class="asent" data-i="${i}">${t} </span>`).join("");
+  const sents=audioSents.map((t,i)=>`<span class="asent" data-i="${i}">${escapeHtml(t)} </span>`).join("");
   document.getElementById("audioBox").innerHTML=`<div class="card">
-    <h2>🎧 ${s.title}</h2>
+    <h2>🎧 ${escapeHtml(s.title)}</h2>
     <div class="row"><button class="btn" id="audioPlay" style="margin:0" onclick="audioToggle()">▶️ Reproducir</button>
     <button class="btn sec" style="margin:0" onclick="audioRestart()">⏮️ Reiniciar</button></div>
     <p class="hint">Podés solo escuchar, o seguir el texto con la vista (se resalta lo que suena).</p>
     <div id="audioText" style="font-size:20px;line-height:1.9;margin-top:12px">${sents}</div>
-    ${s.apunte&&s.apunte.length?`<h3 style="margin-top:18px">📒 Apunte</h3>`+s.apunte.map(a=>`<div class="note">${a}</div>`).join("")+`<p class="hint">Este apunte quedó guardado en "Mis apuntes".</p>`:""}
+    ${s.apunte&&s.apunte.length?`<h3 style="margin-top:18px">📒 Apunte</h3>`+s.apunte.map(a=>`<div class="note">${escapeHtml(a)}</div>`).join("")+`<p class="hint">Este apunte quedó guardado en "Mis apuntes".</p>`:""}
     <div class="row" style="margin-top:8px"><button class="btn sec" style="margin:0" onclick="openAudio()">🎧 Otro tema</button>
     <button class="btn ghost" style="margin:0" onclick="renderHome();show('v-home')">← Inicio</button></div></div>`;
 }
@@ -1160,13 +1208,13 @@ async function openHistorias(){
 function toggleEs(){ storyShowEs=!storyShowEs; renderStory(); }
 function renderStory(){
   const s=story; let qh="";
-  (s.questions||[]).forEach((q,qi)=>{ qh+=`<div style="margin-top:14px"><b>${q.q}</b><div id="sq${qi}"></div></div>`; });
+  (s.questions||[]).forEach((q,qi)=>{ qh+=`<div style="margin-top:14px"><b>${escapeHtml(q.q)}</b><div id="sq${qi}"></div></div>`; });
   document.getElementById("histBox").innerHTML=`<div class="card">
-    <h2>📖 ${s.title}</h2>
+    <h2>📖 ${escapeHtml(s.title)}</h2>
     <button class="btn sec" onclick="speak(story.story,'en-US')">🔊 Escuchar la historia</button>
-    <p style="font-size:20px;line-height:1.75;margin-top:12px">${s.story}</p>
+    <p style="font-size:20px;line-height:1.75;margin-top:12px">${escapeHtml(s.story)}</p>
     <button class="btn ghost" onclick="toggleEs()">${storyShowEs?"▲ Ocultar traducción":"▼ Ver traducción en español"}</button>
-    ${storyShowEs?`<div class="note">${s.es}</div>`:""}
+    ${storyShowEs?`<div class="note">${escapeHtml(s.es)}</div>`:""}
     <h3 style="margin-top:18px">¿Entendiste?</h3>
     <div id="storyQs">${qh}</div>
     <button class="btn" onclick="openHistorias()" style="margin-top:16px">Otra historia ✨</button>
@@ -1218,7 +1266,7 @@ function scorePron(said){
   const norm=s=>s.toLowerCase().replace(/[.,!?;:'"]/g,"").trim();
   const tw=norm(pronTarget).split(/\s+/), pool=norm(said).split(/\s+/);
   let ok=0;
-  const html=tw.map(w=>{ const i=pool.indexOf(w); if(i>=0){ pool.splice(i,1); ok++; return `<span style="color:var(--good)">${w}</span>`; } return `<span style="color:var(--err);text-decoration:underline">${w}</span>`; }).join(" ");
+  const html=tw.map(w=>{ const i=pool.indexOf(w); if(i>=0){ pool.splice(i,1); ok++; return `<span style="color:var(--ok)">${w}</span>`; } return `<span style="color:var(--err);text-decoration:underline">${w}</span>`; }).join(" ");
   const score=Math.round(ok/tw.length*100);
   const msg=score>=85?"¡Excelente! 🌟":score>=60?"Muy bien, seguí practicando.":"Escuchá de nuevo y repetí despacio.";
   if(score>=60) bumpInter();
@@ -1491,7 +1539,7 @@ function openErrores(){
   box.innerHTML=`<div class="card"><h2>🩹 Mis errores frecuentes</h2><p class="sub">Lo que más te conviene reforzar, ordenado por frecuencia.</p><button class="btn" onclick="practiceErrors()">🎯 Practicar mis errores</button></div><div class="card" id="errList"></div>`;
   const list=document.getElementById("errList");
   errs.forEach(e=>{ const d=document.createElement("div"); d.className="note";
-    d.innerHTML=`<span style="color:var(--err)">❌ ${e.wrong||"(algo)"}</span> → <b style="color:var(--brand-dark)">✅ ${e.right}</b> <span style="font-size:13px;color:var(--muted)">· ${e.count}×</span>${e.why?`<br><span style="font-size:14px;color:var(--muted)">${e.why}</span>`:""}`;
+    d.innerHTML=`<span style="color:var(--err)">❌ ${escapeHtml(e.wrong||"(algo)")}</span> → <b style="color:var(--brand-dark)">✅ ${escapeHtml(e.right)}</b> <span style="font-size:13px;color:var(--muted)">· ${e.count}×</span>${e.why?`<br><span style="font-size:14px;color:var(--muted)">${escapeHtml(e.why)}</span>`:""}`;
     const br=document.createElement("br"); const s=document.createElement("span"); s.className="sayen"; s.textContent="🔊 Escuchar"; s.onclick=()=>speak(e.right,"en-US");
     d.appendChild(br); d.appendChild(s); list.appendChild(d); });
   show("v-errores");
@@ -1504,8 +1552,8 @@ function renderErrPractice(){
   box.innerHTML=`<div class="card center">
     <p class="hint">${errIdx+1} de ${errQueue.length}</p>
     <p class="sub">¿Cómo se dice bien?</p>
-    <h3 style="color:var(--err);font-size:22px">❌ ${e.wrong||"(pensá la forma correcta)"}</h3>
-    ${errShow?`<div style="margin-top:12px"><div style="font-size:22px;font-weight:700;color:var(--brand-dark)">✅ ${e.right}</div>${e.why?`<div class="note">${e.why}</div>`:""}<div class="sayen" style="justify-content:center" onclick="speak(errQueue[errIdx].right,'en-US')">🔊 Escuchar</div></div>
+    <h3 style="color:var(--err);font-size:22px">❌ ${escapeHtml(e.wrong||"(pensá la forma correcta)")}</h3>
+    ${errShow?`<div style="margin-top:12px"><div style="font-size:22px;font-weight:700;color:var(--brand-dark)">✅ ${escapeHtml(e.right)}</div>${e.why?`<div class="note">${escapeHtml(e.why)}</div>`:""}<div class="sayen" style="justify-content:center" onclick="speak(errQueue[errIdx].right,'en-US')">🔊 Escuchar</div></div>
       <button class="btn" onclick="errNext()">Siguiente →</button>`
     :`<button class="btn" onclick="errReveal()">Ver forma correcta</button>`}
     <button class="btn ghost" onclick="openErrores()">← Volver</button></div>`;
@@ -1532,11 +1580,11 @@ async function diccSearch(){
       [{role:"user",parts:[{text:`Definí la palabra o frase "${q}". Si está en español dame el inglés; si está en inglés dame el español. JSON: {"word":"la palabra/frase en inglés","es":"traducción al español","meaning":"significado o definición en español, claro y corto","example_en":"ejemplo de uso en inglés","example_es":"traducción del ejemplo al español","pron_es":"cómo suena, escrito para un hispanohablante"}`}]}],true);
     diccData=JSON.parse(raw);
     res.innerHTML=`<div class="card" style="margin-top:12px;box-shadow:none;border-color:var(--brand)">
-      <h2 style="margin-bottom:2px">${diccData.word} <span class="sayen" style="display:inline-flex" onclick="speak(diccData.word,'en-US')">🔊</span></h2>
-      ${diccData.pron_es?`<p style="color:var(--muted);margin:0 0 8px">suena "${diccData.pron_es}"</p>`:""}
-      <div><b>Español:</b> ${diccData.es}</div>
-      <div style="margin-top:6px"><b>Significado:</b> ${diccData.meaning}</div>
-      ${diccData.example_en?`<div class="note" style="margin-top:10px"><i>${diccData.example_en}</i> <span class="sayen" style="display:inline-flex" onclick="speak(diccData.example_en,'en-US')">🔊</span><br><span style="color:var(--muted);font-size:14px">${diccData.example_es||""}</span></div>`:""}
+      <h2 style="margin-bottom:2px">${escapeHtml(diccData.word)} <span class="sayen" style="display:inline-flex" onclick="speak(diccData.word,'en-US')">🔊</span></h2>
+      ${diccData.pron_es?`<p style="color:var(--muted);margin:0 0 8px">suena "${escapeHtml(diccData.pron_es)}"</p>`:""}
+      <div><b>Español:</b> ${escapeHtml(diccData.es)}</div>
+      <div style="margin-top:6px"><b>Significado:</b> ${escapeHtml(diccData.meaning)}</div>
+      ${diccData.example_en?`<div class="note" style="margin-top:10px"><i>${escapeHtml(diccData.example_en)}</i> <span class="sayen" style="display:inline-flex" onclick="speak(diccData.example_en,'en-US')">🔊</span><br><span style="color:var(--muted);font-size:14px">${escapeHtml(diccData.example_es||"")}</span></div>`:""}
       <button class="btn" onclick="diccSave()">➕ Guardar en tarjetas</button></div>`;
   }catch(e){ res.innerHTML=`<div class="note" style="margin-top:12px">${e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana.":"No pude buscar esa palabra. Probá de nuevo."}</div>`; }
 }
@@ -1657,10 +1705,10 @@ function renderFoto(previewUrl){
   if(!d.found){ res.innerHTML=`<div class="note" style="margin-top:12px">No encontré texto en inglés claro en la foto. Probá con más luz, más cerca, o un cartel distinto.</div><button class="btn" onclick="openFoto()">← Probar otra foto</button>`; return; }
   res.innerHTML=`<div style="margin-top:14px"><img src="${previewUrl}" style="max-width:100%;border-radius:12px;max-height:200px;object-fit:cover"></div>
     <h3 style="margin-top:14px">Lo que dice:</h3>
-    <p style="font-size:19px;line-height:1.6">${d.text} <span class="sayen" style="display:inline-flex" onclick="speak(fotoData.text,'en-US')">🔊</span></p>
-    <div class="note"><b>En español:</b> ${d.es}</div>
-    ${d.meaning?`<div class="note">${d.meaning}</div>`:""}
-    ${(d.vocab&&d.vocab.length)?`<h3 style="margin-top:14px">Palabras clave</h3>`+d.vocab.map(v=>`<div class="chip" style="display:block;margin:6px 0">${v.en} = ${v.es}</div>`).join(""):""}
+    <p style="font-size:19px;line-height:1.6">${escapeHtml(d.text)} <span class="sayen" style="display:inline-flex" onclick="speak(fotoData.text,'en-US')">🔊</span></p>
+    <div class="note"><b>En español:</b> ${escapeHtml(d.es)}</div>
+    ${d.meaning?`<div class="note">${escapeHtml(d.meaning)}</div>`:""}
+    ${(d.vocab&&d.vocab.length)?`<h3 style="margin-top:14px">Palabras clave</h3>`+d.vocab.map(v=>`<div class="chip" style="display:block;margin:6px 0">${escapeHtml(v.en)} = ${escapeHtml(v.es)}</div>`).join(""):""}
     <p class="hint">Las palabras nuevas se guardaron en tus tarjetas de repaso 🃏</p>
     <button class="btn" onclick="openFoto()">📷 Otra foto</button>
     <button class="btn ghost" onclick="renderHome();show('v-home')">← Inicio</button>`;

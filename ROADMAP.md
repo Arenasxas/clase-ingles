@@ -58,10 +58,28 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 ## ❌ Descartado
 - **Migrar la llamada a Gemini Live API** — investigado (jul-2026): el audio en tiempo real NO tiene capa gratuita confiable, se cobra aparte del texto y hubo baja de modelos live (gemini-2.0-flash-live discontinuado 1-jun-2026). Rompe el requisito de "siempre gratis" de la app. Decisión del usuario: mantener el modo llamada actual (Web Speech, gratis) y no migrar. No reabrir salvo que el usuario pida explícitamente pagar por esto.
 
-## 💡 Ideas futuras
-- (ninguna pendiente por ahora)
+## 🧠 Proyecto grande: tutor adaptativo por alumno
+
+Pivote mayor (jul-2026): la app deja de tratar a todos igual y pasa a modelar a su alumno (qué necesita, qué domina, cómo se siente al hablar) para decidir cada día qué conviene practicar. Plan completo en `me-gustar-a-que-la-hazy-moth.md` (plan mode). Basado en evidencia científica real, no en "estilos de aprendizaje" (VAK) — ver decisión abajo.
+
+**Decisión importante — test de estilos de aprendizaje DESCARTADO como filtro de contenido**: el usuario pidió un test de estilos visual/auditivo/kinestésico. Investigación (jul-2026): meta-análisis Clinton-Lisell & Litzinger 2024 (Frontiers in Psychology, 21 estudios, N=1712) encontró la interacción cruzada que la "meshing hypothesis" exige en solo 26% de las medidas; los autores concluyen que los beneficios son "too small and too infrequent to warrant widespread adoption" y piden "extreme caution", recomendando **instrucción multimodal para todos** en su lugar (g=0,28–0,70). Decisión (aprobada por el usuario): el test inicial pasa a ser **needs analysis** (qué tareas reales necesita hacer con el inglés — esto sí tiene respaldo sólido, revisión de 149 estudios ESP) + una pregunta de formato preferido que se usa **solo como desempate** del recomendador, nunca para quitar actividades. **No reabrir el test VAK como filtro de contenido** salvo pedido explícito nuevo del usuario con nueva evidencia en contra.
+
+Otras restricciones de evidencia que rigen el diseño: práctica espaciada g≈0,80 (Kim & Webb 2022) → intervalos iguales por defecto; corrective feedback explícito d≈0,64, prompts>recasts (Li 2010; Lyster & Saito); interleaving daña vocabulario g=−0,39 (Brunmair & Richter 2019) → nunca intercalar palabras, solo gramática y con dominio medio; ansiedad al hablar r≈−0,36 → puntajes ocultables y reintentos libres.
+
+**Alcance actual**: solo la nonna (sin multi-usuario ni proxy de API — cada quien pega su propia clave gratis). Supabase queda documentado para una fase posterior, no se implementa todavía.
+
+### Fases
+- ✅ **Fase 0 — Andamiaje y fixes**: backup de localStorage antes de migrar + botón "Restaurar copia anterior" en Ajustes; `deepDefaults()` recursivo reemplaza el merge a mano (preserva correctamente diccionarios dinámicos como badges/goalsDone/lessonsDone, verificado); poda de `history` a 40 turnos + manejo de `QuotaExceededError` con poda progresiva; `escapeHtml()` aplicado a ~14 sitios que inyectan texto de IA/usuario por `innerHTML` (verificado con payloads XSS reales: quedan como texto, no se ejecutan); fix de `scoreLevel()` para que use el campo `lvl` de las preguntas (antes se ignoraba — ahora acertar una pregunta difícil pesa aunque falles varias fáciles); fix de `seenGuide` (se escribía y nunca se leía). Todo verificado: migración probada con un estado viejo completo (nada se perdió), inyección HTML maliciosa neutralizada, 14 pantallas sin errores de consola.
+- ⏳ **Fase 1** — Personalización real en las 11 llamadas a IA (`buildLearnerContext`, hoy 8 de 11 no reciben nada del perfil)
+- ⏳ **Fase 2** — Motor de dominio: catálogo de knowledge components + BKT local (determinista, sin gastar IA)
+- ⏳ **Fase 3** — Onboarding nuevo: needs analysis + diagnóstico adaptativo + prescripción de método explicada
+- ⏳ **Fase 4** — Recomendador en el home ("hoy te conviene esto porque…")
+- ⏳ **Fase 5** — Coach con IA (1 llamada por sesión) que ajusta la prescripción, con patch validado
+- ⏳ **Fase 6** — Recomendaciones de contenido real (series/música) desde catálogo curado
+- 🔜 Supabase (fuera de alcance por ahora, investigado: free tier 500MB/50k MAU, RLS + anon auth, se pausa a los 7 días de inactividad)
 
 ## ⏳ Próximo (priorizado)
+- Fase 1 del tutor adaptativo (ver arriba)
 
 ## Notas
 - URL: https://arenasxas.github.io/clase-ingles/
