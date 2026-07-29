@@ -50,6 +50,11 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 - Barra superior recupera el título correcto al volver de una situación/lección a la clase normal.
 - Todas las clases CSS usadas en el código tienen su regla definida (chequeo automático, ninguna faltante tras el fix de `.row`).
 
+## ✅ Hecho (extra)
+- **Material curricular real para las 50 lecciones** (A1–C1) — cada lección ahora tiene: explicación gramatical concreta en español, vocabulario curado (5-6 términos con traducción), y el error típico de interferencia español→inglés a vigilar. Antes solo tenían título + 3 palabras sueltas y la IA improvisaba todo. Ahora la profe enseña desde material preparado, no inventa sobre la marcha.
+- El generador de **audio-clases** también usa este material cuando el tema viene del camino (gramática + vocab + error se pasan al prompt).
+- `lessonSystem()` reescrito para inyectar el material real (tema, gramática, vocabulario a incorporar, error a vigilar) en cada lección.
+
 ## ❌ Descartado
 - **Migrar la llamada a Gemini Live API** — investigado (jul-2026): el audio en tiempo real NO tiene capa gratuita confiable, se cobra aparte del texto y hubo baja de modelos live (gemini-2.0-flash-live discontinuado 1-jun-2026). Rompe el requisito de "siempre gratis" de la app. Decisión del usuario: mantener el modo llamada actual (Web Speech, gratis) y no migrar. No reabrir salvo que el usuario pida explícitamente pagar por esto.
 
