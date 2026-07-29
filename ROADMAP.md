@@ -40,6 +40,9 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 ## ✅ Hecho (extra)
 - **📷 Practicar con una foto** — saca/elige una foto (cartel, etiqueta, menú), Gemini (visión) lee el texto, traduce, explica y suma vocabulario a las tarjetas. Gratis (mismo modelo, sin costo extra).
 
+## 🐛 Bugs encontrados y corregidos
+- **Botones en fila apilados en vez de lado a lado** — faltaba la clase CSS `.row` (solo existía `.rowbtw`). Afectaba: Repaso/Juegos, Mis errores/Diccionario en el inicio, Sí/No del repaso, controles de audio-clase, reintentar en pronunciación. Corregido agregando `.row{display:flex;gap:10px}` + `.row>*{flex:1}`.
+
 ## 💡 Ideas futuras
 - Migrar la llamada a Gemini Live API (audio nativo, menos eco) — no gratis, evaluar si vale la pena
 
