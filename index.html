@@ -257,6 +257,7 @@
         <button class="btn sec" onclick="openErrores()" style="margin:0">🩹 Mis errores<span id="errCount"></span></button>
         <button class="btn sec" onclick="openDicc()" style="margin:0">🔎 Diccionario</button>
       </div>
+      <button class="btn sec" onclick="openFoto()" style="margin-top:10px">📷 Practicar con una foto</button>
       <p class="hint center" id="usageHint" style="margin-top:10px"></p>
       <div class="grid" style="margin-top:16px">
         <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
@@ -360,6 +361,11 @@
       <div id="callBox"></div>
     </section>
 
+    <!-- FOTO / OCR -->
+    <section class="view" id="v-foto">
+      <div id="fotoBox"></div>
+    </section>
+
     <!-- APUNTES -->
     <section class="view" id="v-notes">
       <div class="card">
@@ -421,7 +427,7 @@ const LS = "claseIngles.v2";
 const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, history:[],
   notes:[], goalsDone:{}, dailyGoal:5,
   prefs:{style:[],styleMore:"",objective:""}, material:"", seenGuide:false,
-  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0, errors:[],
+  deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0, errors:[], photosRead:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" } };
 let S = migrate(load()) || structuredClone(DEFAULT);
@@ -453,6 +459,7 @@ const BADGES=[
  {id:"ten_lessons",emoji:"🎖️",name:"10 lecciones",cond:s=>Object.keys(s.lessonsDone||{}).length>=10},
  {id:"first_story",emoji:"📖",name:"Primera historia",cond:s=>(s.storiesRead||0)>=1},
  {id:"first_audio",emoji:"🎧",name:"Primer audio",cond:s=>(s.audioDone||0)>=1},
+ {id:"first_photo",emoji:"📷",name:"Primera foto",cond:s=>(s.photosRead||0)>=1},
  {id:"streak3",emoji:"🔥",name:"3 días seguidos",cond:s=>s.stats.best>=3},
  {id:"streak7",emoji:"🔥",name:"1 semana seguida",cond:s=>s.stats.best>=7},
  {id:"streak30",emoji:"🏆",name:"1 mes seguido",cond:s=>s.stats.best>=30},
@@ -492,7 +499,7 @@ function show(id){
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
     "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes",
-    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar","v-errores":"Mis errores","v-dicc":"Diccionario" };
+    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar","v-errores":"Mis errores","v-dicc":"Diccionario","v-foto":"Foto" };
   document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
@@ -519,6 +526,19 @@ async function gemini(systemPrompt, contents, wantJson=false){
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.key)}`;
   const body={ system_instruction:{parts:[{text:systemPrompt}]}, contents,
     generationConfig: wantJson?{responseMimeType:"application/json",temperature:0.4}:{temperature:0.7} };
+  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(r.status===429) throw new Error("LIMITE");
+  if(!r.ok){ const t=await r.text(); throw new Error("Gemini "+r.status+": "+t.slice(0,200)); }
+  bumpUsage();
+  const j=await r.json();
+  return j?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("")||"";
+}
+async function geminiVision(systemPrompt, promptText, imgBase64, mimeType, wantJson=false){
+  const model = S.model || "gemini-flash-latest";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.key)}`;
+  const body={ system_instruction:{parts:[{text:systemPrompt}]},
+    contents:[{role:"user",parts:[{text:promptText},{inline_data:{mime_type:mimeType,data:imgBase64}}]}],
+    generationConfig: wantJson?{responseMimeType:"application/json",temperature:0.3}:{temperature:0.6} };
   const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(r.status===429) throw new Error("LIMITE");
   if(!r.ok){ const t=await r.text(); throw new Error("Gemini "+r.status+": "+t.slice(0,200)); }
@@ -1433,6 +1453,53 @@ function callListen(){
 }
 function callRepeat(){ const last=[...callHistory].reverse().find(m=>m.role==="teacher"); if(last) speakCall(last.text); }
 function hangUp(){ callActive=false; mode="class"; if(callRec){ try{callRec.stop();}catch(e){} } if(window.speechSynthesis) speechSynthesis.cancel(); renderHome(); show("v-home"); }
+
+/* ===== FOTO / OCR (IA con visión) ===== */
+var fotoData=null;
+function openFoto(){
+  document.getElementById("fotoBox").innerHTML=`<div class="card">
+    <h2>📷 Practicar con una foto</h2>
+    <p class="sub">Sacale una foto a un cartel, una etiqueta, una carta o cualquier texto en inglés. La profe te lo lee, traduce y explica.</p>
+    <input type="file" id="fotoInput" accept="image/*" capture="environment" style="display:none">
+    <button class="btn" onclick="document.getElementById('fotoInput').click()">📷 Sacar o elegir una foto</button>
+    <div id="fotoResult"></div></div>`;
+  document.getElementById("fotoInput").onchange=handleFotoFile;
+  show("v-foto");
+}
+function handleFotoFile(e){
+  const file=e.target.files&&e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{ const dataUrl=reader.result; const base64=dataUrl.split(",")[1]; processFoto(base64,file.type||"image/jpeg",dataUrl); };
+  reader.readAsDataURL(file);
+}
+async function processFoto(base64,mime,previewUrl){
+  const res=document.getElementById("fotoResult");
+  res.innerHTML=`<div style="margin-top:14px"><img src="${previewUrl}" style="max-width:100%;border-radius:12px;max-height:220px;object-fit:cover"></div>
+    <div class="center" style="padding:16px"><div class="spin dark" style="width:32px;height:32px;border-width:4px"></div><p class="sub">Leyendo la foto…</p></div>`;
+  try{
+    const sys=`Sos "Miss Clara", profesora de inglés nativa experta (C2, TEFL/CELTA), ayudando a ${S.name} (nivel ${S.level} MCER) a entender un texto real que fotografió. Respondé SOLO JSON.`;
+    const prompt=`Mirá la imagen. Extraé el texto en inglés que encuentres (cartel, etiqueta, menú, carta, lo que sea). Si hay poco o nada de texto en inglés, decilo. JSON: {"found":true|false,"text":"el texto tal cual está en la imagen","es":"traducción completa al español","meaning":"explicación breve en español de qué es y qué significa, en 1-2 oraciones","vocab":[{"en":"palabra o frase clave","es":"significado"}]}`;
+    const raw=await geminiVision(sys,prompt,base64,mime,true);
+    fotoData=JSON.parse(raw);
+    S.photosRead=(S.photosRead||0)+1; checkBadges();
+    if(fotoData.found && fotoData.vocab) fotoData.vocab.forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,""); });
+    save();
+    renderFoto(previewUrl);
+  }catch(e){ res.innerHTML=`<div class="note" style="margin-top:12px">${e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana.":"No pude leer la foto. Probá con más luz o de más cerca."}</div><button class="btn" onclick="openFoto()">← Probar de nuevo</button>`; }
+}
+function renderFoto(previewUrl){
+  const d=fotoData, res=document.getElementById("fotoResult");
+  if(!d.found){ res.innerHTML=`<div class="note" style="margin-top:12px">No encontré texto en inglés claro en la foto. Probá con más luz, más cerca, o un cartel distinto.</div><button class="btn" onclick="openFoto()">← Probar otra foto</button>`; return; }
+  res.innerHTML=`<div style="margin-top:14px"><img src="${previewUrl}" style="max-width:100%;border-radius:12px;max-height:200px;object-fit:cover"></div>
+    <h3 style="margin-top:14px">Lo que dice:</h3>
+    <p style="font-size:19px;line-height:1.6">${d.text} <span class="sayen" style="display:inline-flex" onclick="speak(fotoData.text,'en-US')">🔊</span></p>
+    <div class="note"><b>En español:</b> ${d.es}</div>
+    ${d.meaning?`<div class="note">${d.meaning}</div>`:""}
+    ${(d.vocab&&d.vocab.length)?`<h3 style="margin-top:14px">Palabras clave</h3>`+d.vocab.map(v=>`<div class="chip" style="display:block;margin:6px 0">${v.en} = ${v.es}</div>`).join(""):""}
+    <p class="hint">Las palabras nuevas se guardaron en tus tarjetas de repaso 🃏</p>
+    <button class="btn" onclick="openFoto()">📷 Otra foto</button>
+    <button class="btn ghost" onclick="renderHome();show('v-home')">← Inicio</button>`;
+}
 
 /* ===== Boot ===== */
 function routeAfterKey(){

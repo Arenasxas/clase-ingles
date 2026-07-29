@@ -37,9 +37,11 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 ## ✅ Hecho (extra)
 - **📞 Clase por llamada (voz en vivo)** — modo manos libres tipo llamada telefónica: escucha → IA → habla en bucle automático, con pantalla de llamada, subtítulos y botón colgar. Clase hablada natural. Usa Web Speech (gratis), no Gemini Live.
 
+## ✅ Hecho (extra)
+- **📷 Practicar con una foto** — saca/elige una foto (cartel, etiqueta, menú), Gemini (visión) lee el texto, traduce, explica y suma vocabulario a las tarjetas. Gratis (mismo modelo, sin costo extra).
+
 ## 💡 Ideas futuras
-- Subir foto de un texto/cartel para practicar (OCR)
-- Migrar la llamada a Gemini Live API (audio nativo, menos eco) si se quiere calidad tipo teléfono real
+- Migrar la llamada a Gemini Live API (audio nativo, menos eco) — no gratis, evaluar si vale la pena
 
 ## ⏳ Próximo (priorizado)
 
