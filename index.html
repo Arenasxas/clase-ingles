@@ -471,10 +471,15 @@ const BADGES=[
  {id:"xp100",emoji:"⭐",name:"100 puntos",cond:s=>(s.xp||0)>=100},
  {id:"xp500",emoji:"🌟",name:"500 puntos",cond:s=>(s.xp||0)>=500},
 ];
-function toast(msg){
+let toastQueue=[], toastShowing=false;
+function toast(msg){ toastQueue.push(msg); if(!toastShowing) toastNext(); }
+function toastNext(){
+  if(!toastQueue.length){ toastShowing=false; return; }
+  toastShowing=true;
+  const msg=toastQueue.shift();
   const el=document.createElement("div"); el.className="toast"; el.textContent=msg; document.body.appendChild(el);
   setTimeout(()=>el.classList.add("show"),10);
-  setTimeout(()=>{ el.classList.remove("show"); setTimeout(()=>el.remove(),400); },3200);
+  setTimeout(()=>{ el.classList.remove("show"); setTimeout(()=>{ el.remove(); toastNext(); },400); },2600);
 }
 function checkBadges(){ BADGES.forEach(b=>{ if(!S.badges[b.id] && b.cond(S)){ S.badges[b.id]=Date.now(); save(); toast(`🏅 ¡Logro! ${b.emoji} ${b.name}`); } }); }
 function openLogros(){

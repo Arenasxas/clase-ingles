@@ -42,6 +42,13 @@ Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Ba
 
 ## 🐛 Bugs encontrados y corregidos
 - **Botones en fila apilados en vez de lado a lado** — faltaba la clase CSS `.row` (solo existía `.rowbtw`). Afectaba: Repaso/Juegos, Mis errores/Diccionario en el inicio, Sí/No del repaso, controles de audio-clase, reintentar en pronunciación. Corregido agregando `.row{display:flex;gap:10px}` + `.row>*{flex:1}`.
+- **Avisos de logro (toast) superpuestos** — si se desbloqueaban 2+ insignias en el mismo momento (ej. primera clase + racha 7 días + 100 puntos a la vez), los carteles se dibujaban todos en el mismo lugar, ilegibles. Corregido con una cola: ahora se muestran de a uno.
+
+## 🔍 Revisión integral realizada
+- Las 16 pantallas abren sin error de consola, probadas juntas con un estado "rico" (todas las funciones con datos).
+- Transiciones entre modos (clase ↔ situación ↔ lección ↔ llamada) no mezclan historiales ni dejan estado roto; cada entrada resetea el modo correctamente.
+- Barra superior recupera el título correcto al volver de una situación/lección a la clase normal.
+- Todas las clases CSS usadas en el código tienen su regla definida (chequeo automático, ninguna faltante tras el fix de `.row`).
 
 ## 💡 Ideas futuras
 - Migrar la llamada a Gemini Live API (audio nativo, menos eco) — no gratis, evaluar si vale la pena
