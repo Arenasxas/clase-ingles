@@ -260,6 +260,7 @@
         <button class="btn sec" onclick="openDicc()" style="margin:0">🔎 Diccionario</button>
       </div>
       <button class="btn sec" onclick="openFoto()" style="margin-top:10px">📷 Practicar con una foto</button>
+      <button class="btn sec" onclick="openModelo()" style="margin-top:10px">🧠 Cómo te veo</button>
       <p class="hint center" id="usageHint" style="margin-top:10px"></p>
       <div class="grid" style="margin-top:16px">
         <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
@@ -368,6 +369,11 @@
       <div id="fotoBox"></div>
     </section>
 
+    <!-- COMO TE VEO (modelo del alumno) -->
+    <section class="view" id="v-modelo">
+      <div id="modeloBox"></div>
+    </section>
+
     <!-- APUNTES -->
     <section class="view" id="v-notes">
       <div class="card">
@@ -433,7 +439,8 @@ const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, histo
   prefs:{style:[],styleMore:"",objective:""}, material:"", seenGuide:false,
   deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0, errors:[], photosRead:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
-  rem:{ on:false, time:"10:00", firedDay:"" } };
+  rem:{ on:false, time:"10:00", firedDay:"" },
+  learner:{ kc:{}, skills:{} } };
 function backupOnce(){
   // Copia de seguridad de UNA sola vez, antes de que cualquier migracion toque los datos reales.
   try{
@@ -541,7 +548,7 @@ function show(id){
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
     "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes",
-    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar","v-errores":"Mis errores","v-dicc":"Diccionario","v-foto":"Foto" };
+    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar","v-errores":"Mis errores","v-dicc":"Diccionario","v-foto":"Foto","v-modelo":"Cómo te veo" };
   document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
@@ -662,16 +669,16 @@ document.getElementById("btnProfile").onclick=()=>{
 
 /* ===== TEST ===== */
 const QUESTIONS=[
-  {q:"Hello, ___ name is Ana.",o:["my","your","his"],a:0,lvl:1},
-  {q:"She ___ a teacher.",o:["am","is","are"],a:1,lvl:1},
-  {q:"I ___ coffee every morning.",o:["drinks","drinking","drink"],a:2,lvl:1},
-  {q:"They ___ to the park yesterday.",o:["go","went","going"],a:1,lvl:2},
-  {q:"There ___ two books on the table.",o:["is","are","am"],a:1,lvl:2},
-  {q:"I have lived here ___ 2010.",o:["for","since","from"],a:1,lvl:3},
-  {q:"If it rains, we ___ stay home.",o:["will","would","are"],a:0,lvl:3},
-  {q:"He said he ___ very tired.",o:["is","was","are"],a:1,lvl:4},
-  {q:"By next year, she ___ graduated.",o:["will","has","will have"],a:2,lvl:5},
-  {q:"I wish I ___ more time.",o:["have","had","has"],a:1,lvl:5},
+  {q:"Hello, ___ name is Ana.",o:["my","your","his"],a:0,lvl:1,kc:"kc_possessives"},
+  {q:"She ___ a teacher.",o:["am","is","are"],a:1,lvl:1,kc:"kc_be_present"},
+  {q:"I ___ coffee every morning.",o:["drinks","drinking","drink"],a:2,lvl:1,kc:"kc_present_simple_3s"},
+  {q:"They ___ to the park yesterday.",o:["go","went","going"],a:1,lvl:2,kc:"kc_past_simple_irr"},
+  {q:"There ___ two books on the table.",o:["is","are","am"],a:1,lvl:2,kc:"kc_there_is_are"},
+  {q:"I have lived here ___ 2010.",o:["for","since","from"],a:1,lvl:3,kc:"kc_perfect_since_for"},
+  {q:"If it rains, we ___ stay home.",o:["will","would","are"],a:0,lvl:3,kc:"kc_cond1"},
+  {q:"He said he ___ very tired.",o:["is","was","are"],a:1,lvl:4,kc:"kc_reported"},
+  {q:"By next year, she ___ graduated.",o:["will","has","will have"],a:2,lvl:5,kc:"kc_future_perfect"},
+  {q:"I wish I ___ more time.",o:["have","had","has"],a:1,lvl:5,kc:"kc_wish_subj"},
 ];
 let qi=0,answers=[];
 function startTest(){ qi=0; answers=[]; show("v-test"); renderQ(); }
@@ -682,7 +689,7 @@ function renderQ(){
   document.getElementById("qSub").innerHTML="Elegí la palabra correcta:<br><b style='color:var(--ink);font-size:22px'>"+t.q+"</b>";
   const box=document.getElementById("qBox"); box.innerHTML="";
   t.o.forEach((opt,i)=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=opt;
-    b.onclick=()=>{ answers.push({lvl:t.lvl,correct:i===t.a}); qi++; if(qi<QUESTIONS.length) renderQ(); else openQuestion(); };
+    b.onclick=()=>{ const correct=i===t.a; answers.push({lvl:t.lvl,correct}); kcObserve(t.kc,correct); qi++; if(qi<QUESTIONS.length) renderQ(); else openQuestion(); };
     box.appendChild(b); });
 }
 function openQuestion(){
@@ -826,12 +833,122 @@ var callHistory=[], callRec=null, callActive=false, callState="idle", callSilent
 function curHist(){ return mode==="role"?roleHistory : mode==="lesson"?lessonHistory : S.history; }
 function curSystem(){ return mode==="role"?roleSystem() : mode==="lesson"?lessonSystem() : teacherSystem(); }
 function geminiContents(){ return curHist().map(m=>({role:m.role==="teacher"?"model":"user",parts:[{text:m.text}]})); }
+/* ===== Motor de dominio (BKT local, sin gastar IA) =====
+   Kim & Webb 2022: intervalos IGUALES favorecen la retencion a largo plazo (vs expansivos).
+   Brunmair & Richter 2019: interleaving perjudica vocabulario (g=-0.39) -> el repaso agrupa por tema. */
+const KC=[
+ {id:"kc_be_present",lvl:"A1",es:"el verbo to be en presente"},
+ {id:"kc_possessives",lvl:"A1",es:"adjetivos posesivos (my, your, his...)"},
+ {id:"kc_present_simple_3s",lvl:"A1",es:"la -s de tercera persona"},
+ {id:"kc_do_does_q",lvl:"A1",es:"do/does en preguntas"},
+ {id:"kc_adj_order",lvl:"A1",es:"adjetivo antes del sustantivo"},
+ {id:"kc_countable",lvl:"A1",es:"contables e incontables"},
+ {id:"kc_there_is_are",lvl:"A1",es:"there is / there are"},
+ {id:"kc_past_simple_irr",lvl:"A2",es:"pasado de verbos irregulares"},
+ {id:"kc_did_base",lvl:"A2",es:"did + verbo en base"},
+ {id:"kc_how_much_many",lvl:"A2",es:"how much / how many"},
+ {id:"kc_going_to",lvl:"A2",es:"futuro con going to"},
+ {id:"kc_comparatives",lvl:"A2",es:"comparativos y superlativos"},
+ {id:"kc_perfect_since_for",lvl:"B1",es:"presente perfecto con since/for"},
+ {id:"kc_cond1",lvl:"B1",es:"condicional tipo 1"},
+ {id:"kc_modals_advice",lvl:"B1",es:"should / must / have to"},
+ {id:"kc_reported",lvl:"B2",es:"discurso indirecto"},
+ {id:"kc_passive",lvl:"B2",es:"voz pasiva"},
+ {id:"kc_cond3",lvl:"B2",es:"condicional tipo 3"},
+ {id:"kc_relatives",lvl:"B2",es:"oraciones de relativo"},
+ {id:"kc_wish_subj",lvl:"B2",es:"I wish + pasado"},
+ {id:"kc_future_perfect",lvl:"C1",es:"futuro perfecto"},
+ {id:"kc_inversion",lvl:"C1",es:"inversión y énfasis"},
+ {id:"kc_collocations",lvl:"C1",es:"colocaciones naturales"},
+ {id:"kc_hedging",lvl:"C1",es:"matizar y suavizar"},
+];
+const KCSET=new Set(KC.map(k=>k.id));
+const KC_BY_ID={}; KC.forEach(k=>KC_BY_ID[k.id]=k);
+const LESSON_KC={
+ "A1:0":["kc_possessives"],"A1:4":["kc_adj_order"],"A1:5":["kc_be_present"],
+ "A1:7":["kc_countable"],"A1:8":["kc_do_does_q"],"A1:9":["kc_present_simple_3s"],
+ "A2:0":["kc_past_simple_irr","kc_did_base"],"A2:1":["kc_how_much_many"],
+ "A2:5":["kc_going_to"],"A2:6":["kc_comparatives"],
+ "B1:0":["kc_perfect_since_for"],"B1:1":["kc_cond1"],"B1:9":["kc_modals_advice"],
+ "B2:0":["kc_passive"],"B2:1":["kc_reported"],"B2:2":["kc_cond3"],"B2:4":["kc_modals_advice"],
+ "C1:0":["kc_hedging"],"C1:3":["kc_collocations"],"C1:5":["kc_hedging"],
+};
+const BKT={pInit:0.25,pLearn:0.15,guess:0.25,slip:0.10};
+function clampP(p){ return Math.max(0.02,Math.min(0.995,p)); }
+function kcRec(id){
+  S.learner=S.learner||{}; S.learner.kc=S.learner.kc||{};
+  if(!S.learner.kc[id]) S.learner.kc[id]={p:BKT.pInit,n:0,ok:0,lastAt:0};
+  return S.learner.kc[id];
+}
+function kcP(id){ // dominio efectivo, con decaimiento por olvido (solo si aprendio algo)
+  const r=S.learner?.kc?.[id]; if(!r) return BKT.pInit;
+  if(!r.lastAt || r.p<=BKT.pInit) return clampP(r.p);
+  const days=(Date.now()-r.lastAt)/86400000;
+  return clampP(BKT.pInit + (r.p-BKT.pInit)*Math.exp(-days/30));
+}
+function kcObserve(id, correct){
+  if(!id||!KCSET.has(id)) return;
+  const r=kcRec(id); const pPrior=clampP(r.p);
+  const num = correct ? pPrior*(1-BKT.slip) : pPrior*BKT.slip;
+  const den = correct ? (num+(1-pPrior)*BKT.guess) : (num+(1-pPrior)*(1-BKT.guess));
+  let pPost = den>0 ? num/den : pPrior;
+  pPost = pPost + (1-pPost)*BKT.pLearn; // el intento en si mismo enseña, aun si fallo
+  r.p=clampP(pPost); r.n++; if(correct) r.ok++; r.lastAt=Date.now(); save();
+}
+function weakKc(n){
+  n=n||3;
+  const ids=Object.keys(S.learner?.kc||{}).filter(id=>S.learner.kc[id].n>=2);
+  return ids.map(id=>({id,p:kcP(id),es:(KC_BY_ID[id]||{}).es||id})).sort((a,b)=>a.p-b.p).slice(0,n);
+}
+const SKILLS=["listening","speaking","reading","writing","vocab","pron"];
+function skillRec(name){
+  S.learner=S.learner||{}; S.learner.skills=S.learner.skills||{};
+  if(!S.learner.skills[name]) S.learner.skills[name]={p:0.30,n:0,lastAt:0};
+  return S.learner.skills[name];
+}
+function skillObserve(name, correct){
+  if(!SKILLS.includes(name)) return;
+  const r=skillRec(name), alpha=0.2;
+  r.p=Math.max(0.02,Math.min(0.995, r.p*(1-alpha)+(correct?1:0)*alpha));
+  r.n++; r.lastAt=Date.now(); save();
+}
+// Clasificador local (sin IA) de errores frecuentes de hispanohablantes -> knowledge component
+const KC_RULES=[
+ {kc:"kc_present_simple_3s",re:/\b(he|she|it)\s+\w+s\b/i},
+ {kc:"kc_do_does_q",re:/\b(do|does)\s+(you|he|she|it|they|i|we)\b/i},
+ {kc:"kc_did_base",re:/\bdid\s+(you|he|she|it|they|i|we)\s+[a-z]+\b/i},
+ {kc:"kc_past_simple_irr",re:/\b(went|ate|saw|had|were|came|took|got|gave|made)\b/i},
+ {kc:"kc_be_present",re:/\bi\s+am\s+\d+\s+years\s+old\b/i},
+ {kc:"kc_possessives",re:/\bmy\s+name\s+is\b|\byour\s+name\b/i},
+ {kc:"kc_adj_order",re:/\b(a|an|the)\s+(big|small|red|blue|green|old|new|nice)\s+\w+\b/i},
+ {kc:"kc_countable",re:/\b(some|a)\s+(water|bread|rice|money|advice|information)\b/i},
+ {kc:"kc_there_is_are",re:/\bthere\s+(is|are)\b/i},
+ {kc:"kc_how_much_many",re:/\bhow\s+(much|many)\b/i},
+ {kc:"kc_going_to",re:/\bgoing\s+to\s+\w+/i},
+ {kc:"kc_comparatives",re:/\b\w+er\s+than\b|\bmore\s+\w+\s+than\b/i},
+ {kc:"kc_perfect_since_for",re:/\bhave\s+\w+ed?\s+(since|for)\b|\bhas\s+\w+ed?\s+(since|for)\b/i},
+ {kc:"kc_cond1",re:/\bif\s+\w+\s+\w+s?,?\s+(will|won't)\b/i},
+ {kc:"kc_modals_advice",re:/\b(should|must|have to|has to)\b/i},
+ {kc:"kc_reported",re:/\b(said|told)\s+(that\s+)?(he|she|they|i)\s+(was|were|had)\b/i},
+ {kc:"kc_passive",re:/\b(is|was|are|were)\s+\w+ed\b/i},
+ {kc:"kc_cond3",re:/\bif\s+\w+\s+had\s+\w+ed\b|\bwould\s+have\s+\w+ed\b/i},
+ {kc:"kc_wish_subj",re:/\bi\s+wish\s+i\s+(had|were)\b/i},
+ {kc:"kc_future_perfect",re:/\bwill\s+have\s+\w+ed\b/i},
+ {kc:"kc_collocations",re:/\bmake\s+a\s+decision\b|\bheavy\s+rain\b|\btake\s+a\s+risk\b/i},
+ {kc:"kc_hedging",re:/\bi\s+see\s+your\s+point\b|\bhowever\b/i},
+];
+function guessKC(wrong,right,why){
+  const hay=(right||"")+" "+(why||"");
+  for(const r of KC_RULES){ if(r.re.test(hay)) return r.kc; }
+  return null;
+}
+
 /* ===== Tarjetas / SRS (Leitner) ===== */
-const BOX_DAYS=[0,0,1,3,7,16]; // dias hasta el proximo repaso segun caja (1..5)
-function addCard(front,back,ex){
+const BOX_DAYS=[0,2,4,7,10,14]; // intervalos IGUALES (Kim & Webb 2022: mejor retencion diferida que expansivo)
+function addCard(front,back,ex,topic){
   front=front.trim(); back=(back||"").trim(); if(!front||!back) return;
   if(S.deck.some(c=>c.front.toLowerCase()===front.toLowerCase())) return;
-  S.deck.push({front,back,ex:(ex||"").trim(),box:1,due:Date.now()});
+  S.deck.push({front,back,ex:(ex||"").trim(),topic:(topic||"General").trim(),box:1,due:Date.now()});
 }
 function dueCards(){ const n=Date.now(); return S.deck.filter(c=>c.due<=n); }
 function gradeCard(card,ok){
@@ -845,11 +962,16 @@ function addError(wrong,right,why){
   if(ex){ ex.count++; ex.when=Date.now(); if(why) ex.why=why; }
   else { S.errors=S.errors||[]; S.errors.push({wrong,right,why,count:1,when:Date.now()}); }
   if(S.errors.length>200) S.errors=S.errors.slice(-200);
+  const kc=guessKC(wrong,right,why); if(kc) kcObserve(kc,false);
+}
+function currentTopic(){
+  return mode==="lesson"&&lessonScn ? lessonScn.title : mode==="role"&&roleScn ? roleScn.title : "Clase general";
 }
 function extractNotes(text){
+  const topic=currentTopic();
   const kept=[]; text.split("\n").forEach(l=>{
     const v=l.match(/^\s*VOCAB:\s*(.+)$/i);
-    if(v){ const p=v[1].split("==="); if(p.length>=2) addCard(p[0],p[1],p[2]); return; }
+    if(v){ const p=v[1].split("==="); if(p.length>=2) addCard(p[0],p[1],p[2],topic); return; }
     const er=l.match(/^\s*ERROR:\s*(.+)$/i);
     if(er){ const p=er[1].split("==="); if(p.length>=2){ addError(p[0],p[1],p[2]); kept.push(`📝 ❌ ${p[0].trim()} → ✅ ${p[1].trim()}${p[2]?" — "+p[2].trim():""}`); } return; }
     const m=l.match(/^\s*APUNTE:\s*(.+)$/i);
@@ -993,10 +1115,14 @@ function sample(a,n){ return shuffle(a).slice(0,n); }
 
 /* ===== REPASO (SRS) ===== */
 let repasoQueue=[], repasoIdx=0, repasoShow=false;
-function openRepaso(){ repasoQueue=dueCards().slice(0,20); repasoIdx=0; repasoShow=false; renderRepaso(); show("v-repaso"); }
+function openRepaso(){
+  // Brunmair & Richter 2019: interleaving perjudica vocabulario -> agrupar por tema (bloqueado), no mezclar.
+  repasoQueue=dueCards().sort((a,b)=>(a.topic||"").localeCompare(b.topic||"")).slice(0,20);
+  repasoIdx=0; repasoShow=false; renderRepaso(); show("v-repaso");
+}
 function sayFront(){ if(repasoQueue[repasoIdx]) speak(repasoQueue[repasoIdx].front,"en-US"); }
 function revealCard(){ repasoShow=true; sayFront(); renderRepaso(); }
-function answerCard(ok){ gradeCard(repasoQueue[repasoIdx],ok); save(); repasoShow=false; repasoIdx++; renderRepaso(); }
+function answerCard(ok){ gradeCard(repasoQueue[repasoIdx],ok); skillObserve("vocab",ok); save(); repasoShow=false; repasoIdx++; renderRepaso(); }
 function renderRepaso(){
   const box=document.getElementById("repasoBox");
   if(!S.deck.length){ box.innerHTML=`<div class="card center"><h2>🃏 Repaso</h2><p class="sub">Todavía no hay tarjetas. Aparecen solas cuando la profe te enseña palabras nuevas en la clase.</p><button class="btn" onclick="startClass()">Ir a una clase</button></div>`; return; }
@@ -1045,7 +1171,7 @@ function gameListen(){
     <div id="lOpts"></div><button class="btn ghost" onclick="renderJuegosHub()">← Volver</button></div>`;
   const od=document.getElementById("lOpts");
   opts.forEach(o=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=o.back;
-    b.onclick=()=>{ if(o===c){ b.classList.add("sel"); b.textContent="✅ "+o.back; bumpInter(); setTimeout(gameListen,1000);} else { b.style.borderColor="var(--err)"; b.textContent="❌ "+o.back; } };
+    b.onclick=()=>{ const ok=o===c; skillObserve("listening",ok); if(ok){ b.classList.add("sel"); b.textContent="✅ "+o.back; bumpInter(); setTimeout(gameListen,1000);} else { b.style.borderColor="var(--err)"; b.textContent="❌ "+o.back; } };
     od.appendChild(b); });
 }
 // Completar (IA)
@@ -1064,7 +1190,8 @@ function renderCloze(q){
     <button class="btn ghost" onclick="renderJuegosHub()">← Volver</button></div>`;
   const od=document.getElementById("clzOpts");
   shuffle(q.options).forEach(o=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=o;
-    b.onclick=()=>{ if(o.trim().toLowerCase()===q.answer.trim().toLowerCase()){ b.classList.add("sel"); b.textContent="✅ "+o;
+    b.onclick=()=>{ const ok=o.trim().toLowerCase()===q.answer.trim().toLowerCase(); skillObserve("reading",ok);
+      if(ok){ b.classList.add("sel"); b.textContent="✅ "+o;
       window.clzFull=q.sentence.replace("___",q.answer);
       document.getElementById("clzFb").innerHTML=`<div class="note">✅ <b>${escapeHtml(clzFull)}</b> <span class="sayen" onclick="speak(clzFull,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameCloze()">Otra ✨</button>`; bumpInter(); }
       else { b.style.borderColor="var(--err)"; b.textContent="❌ "+o; } };
@@ -1095,6 +1222,7 @@ function drawScramble(){
   s.pool.forEach((w,i)=>{ const b=document.createElement("button"); b.className="opt"; b.style.cssText="display:inline-block;width:auto;margin:4px;padding:12px 16px"; b.textContent=w; b.onclick=()=>{ s.picked.push(w); s.pool.splice(i,1); drawScramble(); }; pool.appendChild(b); });
   if(s.pool.length===0){
     const ok=s.picked.join(" ")===s.target.join(" ");
+    skillObserve("reading",ok);
     document.getElementById("scrFb").innerHTML= ok
       ?`<div class="note">✅ ¡Correcto! <span class="sayen" onclick="speak(scr.sentence,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameScramble()">Otra ✨</button>`
       :`<div class="note">Casi. La correcta: <b>${escapeHtml(s.sentence)}</b> <span class="sayen" onclick="speak(scr.sentence,'en-US')">🔊</span></div><button class="btn sec" onclick="renderScramble({sentence:scr.sentence,es:scr.es})">Reintentar</button><button class="btn" onclick="gameScramble()">Otra ✨</button>`;
@@ -1120,6 +1248,7 @@ function renderTranslate(q){
 function checkTranslate(){
   const norm=s=>s.trim().toLowerCase().replace(/[.!?,]/g,"");
   const ok=norm(document.getElementById("trIn").value)===norm(window.trg.en);
+  skillObserve("writing",ok);
   document.getElementById("trFb").innerHTML=`<div class="note">${ok?"✅ ¡Perfecto!":"Una forma correcta es:"} <b>${escapeHtml(trg.en)}</b> <span class="sayen" onclick="speak(trg.en,'en-US')">🔊 Escuchar</span></div><button class="btn" onclick="gameTranslate()">Otra ✨</button>`;
   if(ok) bumpInter();
 }
@@ -1190,7 +1319,7 @@ async function generateAudio(topic,lesson){
       [{role:"user",parts:[{text:`${ctx}\nCreá una mini-clase hablada en inglés sobre "${topic}" para nivel ${S.level}. Como un profesor explicando de a poco, 8 a 12 oraciones claras, vocabulario acorde al nivel.${material} Sumá un apunte en español con los puntos clave. JSON: {"title":"título en inglés","script":"la clase en inglés, oraciones separadas por punto","apunte":["3 a 5 puntos clave en español"],"vocab":[{"en":"palabra o frase","es":"significado en español"}]}`}]}],{json:true});
     audioLesson=JSON.parse(raw);
     (audioLesson.apunte||[]).forEach(a=>S.notes.push({t:`🎧 ${audioLesson.title}: ${a}`,when:Date.now()}));
-    (audioLesson.vocab||[]).forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,""); });
+    (audioLesson.vocab||[]).forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,"",audioLesson.title); });
     if(S.notes.length>300) S.notes=S.notes.slice(-300);
     S.audioDone=(S.audioDone||0)+1; checkBadges(); save();
     renderAudioPlayer();
@@ -1307,6 +1436,7 @@ function scorePron(said){
   const html=tw.map(w=>{ const i=pool.indexOf(w); if(i>=0){ pool.splice(i,1); ok++; return `<span style="color:var(--ok)">${w}</span>`; } return `<span style="color:var(--err);text-decoration:underline">${w}</span>`; }).join(" ");
   const score=Math.round(ok/tw.length*100);
   const msg=score>=85?"¡Excelente! 🌟":score>=60?"Muy bien, seguí practicando.":"Escuchá de nuevo y repetí despacio.";
+  skillObserve("pron",score>=60);
   if(score>=60) bumpInter();
   renderPron({html,score,msg});
 }
@@ -1561,6 +1691,7 @@ function startLesson(i){
 function finishLesson(){
   if(mode!=="lesson"||!lessonScn) return;
   const lvl=S.level||"A1"; S.lessonsDone=S.lessonsDone||{}; S.lessonsDone[`${lvl}:${lessonScn._idx}`]=true;
+  (LESSON_KC[`${lvl}:${lessonScn._idx}`]||[]).forEach(kc=>kcObserve(kc,true));
   S.xp=(S.xp||0)+20; checkBadges(); save();
   toast("✅ ¡Lección completada! +20 puntos"); openCamino();
 }
@@ -1627,7 +1758,7 @@ async function diccSearch(){
       <button class="btn" onclick="diccSave()">➕ Guardar en tarjetas</button></div>`;
   }catch(e){ res.innerHTML=`<div class="note" style="margin-top:12px">${e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana.":"No pude buscar esa palabra. Probá de nuevo."}</div>`; }
 }
-function diccSave(){ if(diccData&&diccData.word){ addCard(diccData.word,diccData.es,diccData.example_en||""); checkBadges(); save(); toast("➕ Guardada en tus tarjetas"); } }
+function diccSave(){ if(diccData&&diccData.word){ addCard(diccData.word,diccData.es,diccData.example_en||"","Diccionario"); skillObserve("vocab",true); checkBadges(); save(); toast("➕ Guardada en tus tarjetas"); } }
 
 /* ===== LLAMADA / VOZ EN VIVO ===== */
 function callSystem(){
@@ -1736,7 +1867,8 @@ async function processFoto(base64,mime,previewUrl){
     const raw=await aiCall("lookup", sys, prompt, {image:{base64,mime}, json:true});
     fotoData=JSON.parse(raw);
     S.photosRead=(S.photosRead||0)+1; checkBadges();
-    if(fotoData.found && fotoData.vocab) fotoData.vocab.forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,""); });
+    if(fotoData.found && fotoData.vocab) fotoData.vocab.forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,"","Foto"); });
+    if(fotoData.found) skillObserve("reading",true);
     save();
     renderFoto(previewUrl);
   }catch(e){ res.innerHTML=`<div class="note" style="margin-top:12px">${e.message==="LIMITE"?"Llegaste al máximo de la profe por hoy 😊. Volvé mañana.":"No pude leer la foto. Probá con más luz o de más cerca."}</div><button class="btn" onclick="openFoto()">← Probar de nuevo</button>`; }
@@ -1753,6 +1885,35 @@ function renderFoto(previewUrl){
     <p class="hint">Las palabras nuevas se guardaron en tus tarjetas de repaso 🃏</p>
     <button class="btn" onclick="openFoto()">📷 Otra foto</button>
     <button class="btn ghost" onclick="renderHome();show('v-home')">← Inicio</button>`;
+}
+
+/* ===== CÓMO TE VEO (modelo del alumno) ===== */
+const SKILL_LABEL={listening:"Escuchar 👂",speaking:"Hablar 🗣️",reading:"Leer 📖",writing:"Escribir ✍️",vocab:"Vocabulario 📚",pron:"Pronunciación 🎙️"};
+function openModelo(){
+  const sk=S.learner?.skills||{};
+  let bars="";
+  SKILLS.forEach(name=>{
+    const r=sk[name]; const pct=r?Math.round(r.p*100):30;
+    bars+=`<div style="margin-bottom:12px"><div class="rowbtw" style="margin:0 0 4px"><span>${SKILL_LABEL[name]}</span><span class="hint">${r&&r.n?pct+"%":"sin datos aún"}</span></div><div class="progress"><i style="width:${pct}%"></i></div></div>`;
+  });
+  const weak=weakKc(3);
+  const weakHtml=weak.length
+    ? weak.map(w=>`<div class="note">${escapeHtml(w.es)}</div>`).join("")
+    : `<p class="sub">Todavía no tengo suficientes datos. A medida que practiques, voy a saber qué te conviene reforzar.</p>`;
+  let debugTable="";
+  if(DEBUG){
+    const rows=Object.keys(S.learner?.kc||{}).map(id=>{ const r=S.learner.kc[id];
+      return `<tr><td class="feat">${id}</td><td>${(kcP(id)*100).toFixed(1)}%</td><td>${r.n}</td><td>${r.ok}</td></tr>`; }).join("");
+    debugTable=`<div class="card"><h3>Tabla cruda (debug)</h3><div class="scroll"><table><thead><tr><th>KC</th><th>p</th><th>n</th><th>ok</th></tr></thead><tbody>${rows||"<tr><td colspan=4>vacío</td></tr>"}</tbody></table></div></div>`;
+  }
+  document.getElementById("modeloBox").innerHTML=`<div class="card">
+    <h2>🧠 Cómo te veo</h2>
+    <p class="sub">Esto no es una nota, es solo para que sepas en qué te estoy ayudando a mejorar. Se arma solo con lo que practicás.</p>
+    ${bars}
+    <h3 style="margin-top:16px">Temas a reforzar</h3>
+    ${weakHtml}
+    </div>${debugTable}`;
+  show("v-modelo");
 }
 
 /* ===== Boot ===== */
