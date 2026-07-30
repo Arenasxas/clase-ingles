@@ -190,7 +190,16 @@
         <p class="sub">Este es tu punto de partida y tu plan.</p>
         <div class="center"><span class="chip" id="planLvl" style="font-size:19px;padding:10px 18px"></span></div>
         <div id="planBody" style="margin-top:16px"></div>
-        <button class="btn" id="btnPlanNext">Continuar → personalizar 🎨</button>
+        <button class="btn" id="btnPlanNext">Continuar</button>
+      </div>
+    </section>
+
+    <!-- PRESCRIPCION (como vamos a trabajar) -->
+    <section class="view" id="v-rx">
+      <div class="card">
+        <h2>Así vamos a trabajar 📋</h2>
+        <div id="rxBody"></div>
+        <button class="btn" id="btnRxNext">Ir a mi clase 🎓</button>
       </div>
     </section>
 
@@ -208,7 +217,60 @@
       </div>
     </section>
 
-    <!-- PERSONALIZAR -->
+    <!-- MIGRACION (usuarias existentes) -->
+    <section class="view" id="v-migrate">
+      <div class="card center">
+        <h2>Unas preguntas nuevas 🙂</h2>
+        <p class="sub">Quiero conocerte un poco más para armarte una clase a tu medida. Es rápido, menos de un minuto.</p>
+        <button class="btn" id="btnMigrateStart">Empezar</button>
+      </div>
+    </section>
+
+    <!-- NEEDS ANALYSIS -->
+    <section class="view" id="v-needs">
+      <div class="card">
+        <h2>¿Para qué querés el inglés? 🎯</h2>
+        <p class="sub">Elegí lo que más te sirva (podés marcar varias).</p>
+        <div id="tasksList"></div>
+        <label for="taskOther">¿Algo más? (opcional)</label>
+        <input type="text" id="taskOther" placeholder="Ej: hablar con un vecino" autocomplete="off">
+        <button class="btn" id="btnNeedsNext">Continuar</button>
+      </div>
+    </section>
+
+    <!-- TIEMPO -->
+    <section class="view" id="v-when">
+      <div class="card">
+        <h2>¿Cuánto tiempo tenés? ⏱️</h2>
+        <p class="sub">Elegí lo que puedas sostener todos los días. Mejor poco y seguido que mucho de golpe.</p>
+        <div id="minutesChips"></div>
+        <div class="rowbtw" style="margin-top:16px">
+          <span>¿Tenés una fecha importante? (viaje, evento)</span>
+          <label class="switch"><input type="checkbox" id="hasDeadline"><span class="track"></span><span class="knob"></span></label>
+        </div>
+        <div id="deadlineBox" style="display:none">
+          <label for="deadlineDate">¿Cuándo?</label>
+          <input type="date" id="deadlineDate">
+        </div>
+        <button class="btn" id="btnWhenNext">Continuar</button>
+      </div>
+    </section>
+
+    <!-- AFECTIVO -->
+    <section class="view" id="v-affect">
+      <div class="card">
+        <h2>Una última cosa 💬</h2>
+        <p class="sub">¿Te da vergüenza o nervios hablar en inglés?</p>
+        <div class="row" id="anxFaces"></div>
+        <label style="margin-top:18px;display:block">¿Querés que te corrija todo, o solo lo importante?</label>
+        <div class="row" id="corrChips"></div>
+        <label style="margin-top:18px;display:block">¿Cuánto español de apoyo querés en las clases?</label>
+        <div class="row" id="l1Chips"></div>
+        <button class="btn" id="btnAffectNext">Continuar</button>
+      </div>
+    </section>
+
+    <!-- PERSONALIZAR (formato, solo desempate, nunca filtra contenido) -->
     <section class="view" id="v-prefs">
       <div class="card">
         <h2>Personalizá tu clase 🎨</h2>
@@ -440,7 +502,10 @@ const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, histo
   deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0, errors:[], photosRead:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" },
-  learner:{ kc:{}, skills:{} } };
+  learner:{ kc:{}, skills:{}, tasks:[], taskOther:"",
+    time:{ minutesPerDay:10, hasDeadline:false, deadline:0 },
+    affect:{ speakingAnxiety:3, correctionTolerance:"media", l1Support:"medio" },
+    rx:null } };
 function backupOnce(){
   // Copia de seguridad de UNA sola vez, antes de que cualquier migracion toque los datos reales.
   try{
@@ -543,7 +608,7 @@ function show(id){
   audioPlaying=false; if(window.speechSynthesis) speechSynthesis.cancel();
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-  const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan","v-guide","v-prefs","v-call"].includes(id);
+  const inApp = !["v-setup","v-profile","v-test","v-eval","v-plan","v-guide","v-prefs","v-call","v-migrate","v-needs","v-when","v-affect","v-rx"].includes(id);
   document.getElementById("topbar").style.display = inApp ? "flex" : "none";
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
@@ -689,7 +754,10 @@ function renderQ(){
   document.getElementById("qSub").innerHTML="Elegí la palabra correcta:<br><b style='color:var(--ink);font-size:22px'>"+t.q+"</b>";
   const box=document.getElementById("qBox"); box.innerHTML="";
   t.o.forEach((opt,i)=>{ const b=document.createElement("button"); b.className="opt"; b.textContent=opt;
-    b.onclick=()=>{ const correct=i===t.a; answers.push({lvl:t.lvl,correct}); kcObserve(t.kc,correct); qi++; if(qi<QUESTIONS.length) renderQ(); else openQuestion(); };
+    b.onclick=()=>{ const correct=i===t.a; answers.push({lvl:t.lvl,correct}); kcObserve(t.kc,correct); qi++;
+      // Diagnostico adaptativo: 2 fallos seguidos = ya encontramos el techo, no hace falta seguir preguntando de mas.
+      const lastTwoWrong = answers.length>=2 && !answers[answers.length-1].correct && !answers[answers.length-2].correct;
+      if(qi<QUESTIONS.length && !lastTwoWrong) renderQ(); else openQuestion(); };
     box.appendChild(b); });
 }
 function openQuestion(){
@@ -746,15 +814,147 @@ function renderPlan(d){
   if(d.plan?.length){ h+=`<label>🗺️ Tu plan</label>`+d.plan.map((p,i)=>`<div class="chip" style="display:block;margin:8px 0">${i+1}. ${escapeHtml(p)}</div>`).join(""); }
   document.getElementById("planBody").innerHTML=h; show("v-plan");
 }
-document.getElementById("btnPlanNext").onclick=()=>openPrefs();
+document.getElementById("btnPlanNext").onclick=()=>openRx();
 
 /* ===== GUIA ===== */
 function openGuide(fromHome){
   const btn=document.getElementById("btnGuideNext");
   if(fromHome){ btn.textContent="Volver al inicio"; btn.onclick=()=>{ renderHome(); show("v-home"); }; }
-  else { btn.textContent="Empezar el test 📝"; btn.onclick=()=>{ S.seenGuide=true; save(); startTest(); }; }
+  else { btn.textContent="Empezar 📝"; btn.onclick=()=>{ S.seenGuide=true; save(); onboardingFlow=true; openNeeds(); }; }
   show("v-guide");
 }
+
+/* ===== ONBOARDING ADAPTATIVO (needs analysis + tiempo + afectivo + prescripcion) =====
+   Reemplaza el test de "estilos de aprendizaje" (VAK) por preguntas con respaldo real:
+   que necesita hacer con el ingles (needs analysis), tiempo real disponible, y ansiedad al hablar. */
+var onboardingFlow=false;
+const TASKS=[
+ {id:"t_family",emoji:"👨‍👩‍👧",label:"Hablar con familia o nietos"},
+ {id:"t_travel",emoji:"✈️",label:"Viajar y manejarme sola"},
+ {id:"t_series",emoji:"🎬",label:"Entender series y películas"},
+ {id:"t_music",emoji:"🎵",label:"Entender canciones"},
+ {id:"t_health",emoji:"🩺",label:"Ir al médico o la farmacia"},
+ {id:"t_shopping",emoji:"🛍️",label:"Comprar y leer etiquetas"},
+ {id:"t_work",emoji:"💼",label:"Usarlo para trabajar"},
+ {id:"t_read",emoji:"📖",label:"Leer libros o noticias"},
+ {id:"t_other",emoji:"✨",label:"Aprender por gusto, sin un motivo puntual"},
+];
+function openMigrate(){ show("v-migrate"); }
+document.getElementById("btnMigrateStart").onclick=()=>{ onboardingFlow=true; openNeeds(); };
+
+function openNeeds(){
+  S.learner=S.learner||{}; S.learner.tasks=S.learner.tasks||[];
+  const box=document.getElementById("tasksList"); box.innerHTML="";
+  TASKS.forEach(t=>{
+    const on=S.learner.tasks.some(x=>x.id===t.id);
+    const b=document.createElement("button"); b.type="button"; b.className="opt"; b.style.marginBottom="8px";
+    b.innerHTML=`${on?"✅ ":""}${t.emoji} ${t.label}`;
+    b.onclick=()=>{ const i=S.learner.tasks.findIndex(x=>x.id===t.id);
+      if(i>=0) S.learner.tasks.splice(i,1); else S.learner.tasks.push({id:t.id,label:t.label});
+      openNeeds(); };
+    box.appendChild(b);
+  });
+  document.getElementById("taskOther").value=S.learner.taskOther||"";
+  show("v-needs");
+}
+document.getElementById("btnNeedsNext").onclick=()=>{
+  S.learner.taskOther=document.getElementById("taskOther").value.trim(); save(); openWhen();
+};
+
+const MINUTE_OPTS=[5,10,15,20,30];
+function openWhen(){
+  S.learner.time=S.learner.time||{minutesPerDay:10,hasDeadline:false,deadline:0};
+  const box=document.getElementById("minutesChips"); box.innerHTML="";
+  MINUTE_OPTS.forEach(m=>{
+    const on=S.learner.time.minutesPerDay===m;
+    const b=document.createElement("button"); b.type="button"; b.className="opt"; b.style.marginBottom="8px";
+    b.textContent=(on?"✅ ":"")+m+" minutos por día";
+    b.onclick=()=>{ S.learner.time.minutesPerDay=m; openWhen(); };
+    box.appendChild(b);
+  });
+  document.getElementById("hasDeadline").checked=!!S.learner.time.hasDeadline;
+  document.getElementById("deadlineBox").style.display=S.learner.time.hasDeadline?"block":"none";
+  document.getElementById("deadlineDate").value=S.learner.time.deadline?new Date(S.learner.time.deadline).toISOString().slice(0,10):"";
+  show("v-when");
+}
+document.getElementById("hasDeadline").onchange=(e)=>{
+  S.learner.time.hasDeadline=e.target.checked;
+  document.getElementById("deadlineBox").style.display=e.target.checked?"block":"none";
+};
+document.getElementById("btnWhenNext").onclick=()=>{
+  if(!S.learner.time.minutesPerDay) S.learner.time.minutesPerDay=10;
+  const dv=document.getElementById("deadlineDate").value;
+  S.learner.time.deadline=(S.learner.time.hasDeadline&&dv)?new Date(dv).getTime():0;
+  save(); openAffect();
+};
+
+const ANX_FACES=[{v:1,e:"😄",l:"Nada, me encanta"},{v:3,e:"😐",l:"Un poco"},{v:5,e:"😰",l:"Bastante"}];
+function openAffect(){
+  S.learner.affect=S.learner.affect||{speakingAnxiety:3,correctionTolerance:"media",l1Support:"medio"};
+  const fb=document.getElementById("anxFaces"); fb.innerHTML="";
+  ANX_FACES.forEach(f=>{ const on=S.learner.affect.speakingAnxiety===f.v;
+    const b=document.createElement("button"); b.className="opt"; b.style.cssText="flex:1;text-align:center;margin:0";
+    b.innerHTML=`<div style="font-size:32px">${f.e}</div><div style="font-size:14px">${f.l}</div>`;
+    b.onclick=()=>{ S.learner.affect.speakingAnxiety=f.v; openAffect(); };
+    fb.appendChild(b); });
+  const cb=document.getElementById("corrChips"); cb.innerHTML="";
+  [["alta","Corregime todo"],["media","Solo lo importante"]].forEach(([v,l])=>{ const on=S.learner.affect.correctionTolerance===v;
+    const b=document.createElement("button"); b.className="opt"; b.style.cssText="flex:1;margin:0";
+    b.textContent=(on?"✅ ":"")+l;
+    b.onclick=()=>{ S.learner.affect.correctionTolerance=v; openAffect(); };
+    cb.appendChild(b); });
+  const lb=document.getElementById("l1Chips"); lb.innerHTML="";
+  [["mucho","Mucho español"],["medio","Un poco"],["poco","Casi nada"]].forEach(([v,l])=>{ const on=S.learner.affect.l1Support===v;
+    const b=document.createElement("button"); b.className="opt"; b.style.cssText="flex:1;margin:0;padding:10px 4px;font-size:14px";
+    b.textContent=(on?"✅ ":"")+l;
+    b.onclick=()=>{ S.learner.affect.l1Support=v; openAffect(); };
+    lb.appendChild(b); });
+  show("v-affect");
+}
+document.getElementById("btnAffectNext").onclick=()=>{ save(); onboardingFlow=true; openPrefs(); };
+
+function afterFormat(){ if(!S.level) startTest(); else openRx(); }
+
+function averageMasteryObserved(){
+  const ids=Object.keys(S.learner?.kc||{});
+  if(!ids.length) return 0.25;
+  return ids.reduce((s,id)=>s+kcP(id),0)/ids.length;
+}
+function prescribe(){
+  const L=S.learner||{};
+  const anx=L.affect?.speakingAnxiety||3;
+  const minutes=L.time?.minutesPerDay||10;
+  const hasDeadline=!!(L.time?.hasDeadline&&L.time?.deadline);
+  const blockFirst=averageMasteryObserved()<0.5;
+  const mix = anx>=4
+    ? {speak:0.20,retrieval:0.35,input:0.30,grammar:0.15}
+    : {speak:0.40,retrieval:0.30,input:0.20,grammar:0.10};
+  const rationale=[];
+  if(anx>=4) rationale.push("Vamos a hablar de a poco al principio, para agarrar confianza sin presión.");
+  if(hasDeadline) rationale.push("Como tenés una fecha importante, vamos a repasar más seguido para que llegues bien preparada.");
+  if(blockFirst) rationale.push("Primero afianzamos un tema a la vez, antes de mezclarlos con otros.");
+  else rationale.push("Ya tenés una base, así que vamos a ir variando los temas para que no se vuelva repetitivo.");
+  rationale.push(`Con ${minutes} minutos por día alcanza si practicás seguido — eso es lo que más ayuda.`);
+  if((L.tasks||[]).length) rationale.push(`Vamos a usar ejemplos de lo que te interesa: ${L.tasks.map(t=>t.label.toLowerCase()).join(", ")}.`);
+  const rx={ at:Date.now(), minutesPerDay:minutes, mix,
+    spacingMode: hasDeadline?"expanding":"equal",
+    blockFirst, interleaveGrammar: !blockFirst,
+    correctionMode: (L.affect?.correctionTolerance==="alta")?"prompts":"prompts_light",
+    focusKc: weakKc(3).map(w=>w.id),
+    rationale };
+  S.learner.rx=rx; save();
+  return rx;
+}
+function openRx(){
+  const rx=prescribe(); const pct=n=>Math.round(n*100);
+  document.getElementById("rxBody").innerHTML=`
+    <p class="sub">${rx.rationale.map(escapeHtml).join(" ")}</p>
+    <div class="note"><b>Tu mezcla de práctica:</b><br>🗣️ Hablar ${pct(rx.mix.speak)}% · 🔁 Repaso ${pct(rx.mix.retrieval)}% · 👂 Escuchar/leer ${pct(rx.mix.input)}% · 📚 Gramática ${pct(rx.mix.grammar)}%</div>
+    <div class="note">📅 Repasos ${rx.spacingMode==="expanding"?"seguidos al principio, después más espaciados":"cada la misma cantidad de días, para que no se te olvide"}.</div>
+    ${rx.focusKc.length?`<div class="note">🎯 Vamos a reforzar: ${rx.focusKc.map(id=>escapeHtml((KC_BY_ID[id]||{}).es||id)).join(", ")}.</div>`:""}`;
+  show("v-rx");
+}
+document.getElementById("btnRxNext").onclick=()=>{ startClass(); };
 
 /* ===== PERSONALIZAR ===== */
 const STYLE_OPTS=["Más conversación","Más ejercicios","Bien de a poco","Con juegos","Corregir todo detallado","Enfocada en pronunciación","Vocabulario del día a día","Sobre viajes","Sobre familia"];
@@ -780,7 +980,7 @@ document.getElementById("btnSavePrefs").onclick=()=>{
   S.prefs.objective=document.getElementById("prefObj").value.trim();
   S.material=document.getElementById("prefMat").value.trim();
   save();
-  renderHome(); show("v-home");
+  if(onboardingFlow){ onboardingFlow=false; afterFormat(); } else { renderHome(); show("v-home"); }
 };
 
 /* ===== HOME ===== */
@@ -1921,6 +2121,7 @@ function routeAfterKey(){
   document.getElementById("setGoal").value=S.dailyGoal; paintRem();
   if(!S.name){ show("v-profile"); return; }
   if(!S.level){ startTest(); return; }
+  if(!S.learner?.rx){ openMigrate(); return; }
   renderHome(); show("v-home");
 }
 function boot(){ if(!S.key){ show("v-setup"); return; } routeAfterKey(); }
