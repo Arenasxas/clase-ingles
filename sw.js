@@ -1,4 +1,4 @@
-const CACHE = "clase-ingles-v5";
+const CACHE = "clase-ingles-v6";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", e => {

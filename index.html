@@ -307,6 +307,10 @@
         <div class="progress"><i id="goalBar"></i></div>
         <p class="hint" id="goalHint"></p>
       </div>
+      <h3 style="margin:16px 0 8px">Hoy te conviene…</h3>
+      <div id="recToday"></div>
+      <button class="btn ghost" id="btnToggleMenu" style="margin-top:8px" onclick="toggleFullMenu()">Ver todas las actividades ▾</button>
+      <div id="fullMenu" style="display:none">
       <button class="btn big" id="btnTodayClass">🎓 Clase de hoy</button>
       <button class="btn big" onclick="startCall()" style="margin-top:10px;background:var(--accent);color:#3a2a08">📞 Clase por llamada (voz en vivo)</button>
       <div class="row" style="margin-top:12px">
@@ -334,6 +338,7 @@
         <div class="tile" onclick="openLogros()"><div class="ico">🏅</div><div class="t">Logros</div><div class="n" id="tLogros"></div></div>
       </div>
       <button class="btn ghost" style="margin-top:14px" onclick="show('v-settings')">⚙️ Ajustes</button>
+      </div>
     </section>
 
     <!-- CLASE -->
@@ -502,7 +507,7 @@ const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, histo
   deck:[], usage:{day:"",reqs:0}, xp:0, badges:{}, rolesDone:0, lessonsDone:{}, storiesRead:0, audioDone:0, errors:[], photosRead:0,
   stats:{ streak:0, best:0, lastDay:"", days:[], classes:0, today:{day:"",inter:0} },
   rem:{ on:false, time:"10:00", firedDay:"" },
-  learner:{ kc:{}, skills:{}, tasks:[], taskOther:"",
+  learner:{ kc:{}, skills:{}, tasks:[], taskOther:"", engagement:{},
     time:{ minutesPerDay:10, hasDeadline:false, deadline:0 },
     affect:{ speakingAnxiety:3, correctionTolerance:"media", l1Support:"medio" },
     rx:null } };
@@ -1007,6 +1012,109 @@ function renderHome(){
   const due=dueCards().length;
   document.getElementById("repasoCount").textContent = due?` (${due})`:"";
   document.getElementById("usageHint").textContent = `Clase de hoy: te quedan ~${remainingToday()} mensajes con la profe (se renueva mañana). Repaso y juegos: ilimitados.`;
+  renderRecToday();
+}
+
+/* ===== RECOMENDADOR ("Hoy te conviene...") =====
+   recScore = 0.40*need + 0.25*rxFit + 0.20*variety + 0.15*engagement (ver ROADMAP/plan). */
+function touchEng(id){
+  S.learner=S.learner||{}; S.learner.engagement=S.learner.engagement||{};
+  S.learner.engagement[id]=S.learner.engagement[id]||{lastAt:0,count:0};
+  S.learner.engagement[id].lastAt=Date.now(); S.learner.engagement[id].count++;
+}
+function nextLessonIdx(){
+  const list=lessonsForLevel(), done=S.lessonsDone||{}, lvl=S.level||"A1";
+  const i=list.findIndex((_,idx)=>!done[`${lvl}:${idx}`]);
+  return i>=0?i:null;
+}
+const REC_CANDIDATES=[
+ {id:"repaso",emoji:"🃏",label:"Repasar tarjetas",usesIA:false,run:()=>openRepaso(),
+  reason:()=>`Tenés ${dueCards().length} palabras para repasar`},
+ {id:"errores",emoji:"🩹",label:"Practicar tus errores",usesIA:false,run:()=>openErrores(),
+  reason:()=>`Tenés ${(S.errors||[]).length} errores frecuentes para reforzar`},
+ {id:"pron",emoji:"🎙️",label:"Practicar pronunciación",usesIA:false,run:()=>{openJuegos();gamePron();},
+  reason:()=>"Tu pronunciación puede mejorar"},
+ {id:"camino",emoji:"🗺️",label:"Seguir tu camino",usesIA:true,run:()=>{ const i=nextLessonIdx(); if(i!=null) startLesson(i); else openCamino(); },
+  reason:()=>"Es el siguiente paso de tu camino"},
+ {id:"clase",emoji:"🎓",label:"Clase con Miss Clara",usesIA:true,run:()=>startClass(),
+  reason:()=>"Tu clase de hoy"},
+ {id:"call",emoji:"📞",label:"Clase por llamada",usesIA:true,run:()=>startCall(),
+  reason:()=>"Practicá hablando, como una charla real"},
+ {id:"historias",emoji:"📖",label:"Leer una historia",usesIA:true,run:()=>openHistorias(),
+  reason:()=>"Una historia cortita a tu nivel"},
+ {id:"audio",emoji:"🎧",label:"Escuchar una audio-clase",usesIA:true,run:()=>openAudio(),
+  reason:()=>"Para escuchar manos libres"},
+ {id:"roleplay",emoji:"🎭",label:"Practicar una situación real",usesIA:true,run:()=>openRoleplay(),
+  reason:()=>"Practicá como en la vida real"},
+];
+function recNeed(id){
+  switch(id){
+    case "repaso": return Math.min(1, dueCards().length/10);
+    case "errores": return Math.min(1, (S.errors||[]).length/5);
+    case "pron": return 1-(S.learner?.skills?.pron?.p ?? 0.30);
+    case "camino": return 1-averageMasteryObserved();
+    case "clase": return 0.5;
+    case "call": return 0.4;
+    default: return 0.3;
+  }
+}
+function recRxFit(id){
+  const m=(S.learner?.rx?.mix)||{speak:0.3,retrieval:0.3,input:0.2,grammar:0.2};
+  switch(id){
+    case "repaso": return m.retrieval;
+    case "errores": return m.retrieval*0.8;
+    case "pron": return m.speak*0.6;
+    case "camino": return m.grammar;
+    case "clase": return m.speak;
+    case "call": return m.speak;
+    case "historias": case "audio": return m.input;
+    case "roleplay": return m.speak*0.8;
+    default: return 0.3;
+  }
+}
+function recVariety(id){
+  const rec=S.learner?.engagement?.[id];
+  if(!rec||!rec.lastAt) return 1;
+  const days=(Date.now()-rec.lastAt)/86400000;
+  return 1-Math.exp(-days/3);
+}
+function recEngagement(id){
+  const rec=S.learner?.engagement?.[id];
+  if(!rec||!rec.count) return 0.5;
+  return Math.min(1, 0.4+rec.count*0.05);
+}
+function recGates(id){
+  if(id==="call"){
+    const anx=S.learner?.affect?.speakingAnxiety||3;
+    const daysUsed=(S.stats?.days||[]).length;
+    if(anx>=4 && daysUsed<3) return false;
+  }
+  if(["clase","call","camino","historias","audio","roleplay"].includes(id) && (remainingToday()<10 || !S.key)) return false;
+  return true;
+}
+function recScore(id){
+  return 0.40*recNeed(id) + 0.25*recRxFit(id) + 0.20*recVariety(id) + 0.15*recEngagement(id);
+}
+function recommend(n){
+  n=n||3;
+  return REC_CANDIDATES.filter(c=>recGates(c.id))
+    .map(c=>Object.assign({},c,{score:recScore(c.id)}))
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,n);
+}
+function runRec(id){ const c=REC_CANDIDATES.find(x=>x.id===id); if(c) c.run(); }
+function renderRecToday(){
+  const box=document.getElementById("recToday"); if(!box) return;
+  const recs=recommend(3);
+  box.innerHTML = recs.map(c=>`<button class="opt" style="margin-bottom:8px" onclick="runRec('${c.id}')">
+    <b>${c.emoji} ${c.label}</b><br><span style="font-size:14px;color:var(--muted)">${escapeHtml(c.reason())}</span></button>`).join("")
+    || `<p class="sub">Elegí algo del menú para arrancar 🙂</p>`;
+}
+function toggleFullMenu(){
+  const m=document.getElementById("fullMenu"), b=document.getElementById("btnToggleMenu");
+  const open=m.style.display!=="none";
+  m.style.display=open?"none":"block";
+  b.textContent=open?"Ver todas las actividades ▾":"Ocultar ▴";
 }
 
 /* ===== CLASE ===== */
@@ -1207,6 +1315,7 @@ async function sendToTeacher(userText){
   finally{ thinking=false; }
 }
 function startClass(){
+  touchEng("clase");
   mode="class";
   show("v-class");
   if(S.history.length===0){ sendToTeacher(`Hola, soy ${S.name}. Empecemos mi primera clase de nivel ${S.level}. Saludame y arranquemos con el primer tema.`); }
@@ -1316,6 +1425,7 @@ function sample(a,n){ return shuffle(a).slice(0,n); }
 /* ===== REPASO (SRS) ===== */
 let repasoQueue=[], repasoIdx=0, repasoShow=false;
 function openRepaso(){
+  touchEng("repaso");
   // Brunmair & Richter 2019: interleaving perjudica vocabulario -> agrupar por tema (bloqueado), no mezclar.
   repasoQueue=dueCards().sort((a,b)=>(a.topic||"").localeCompare(b.topic||"")).slice(0,20);
   repasoIdx=0; repasoShow=false; renderRepaso(); show("v-repaso");
@@ -1489,6 +1599,7 @@ REGLAS:
 Empezá vos, en personaje, con el saludo de la escena.`;
 }
 function startRoleplay(s){
+  touchEng("roleplay");
   roleScn=s; mode="role"; roleHistory=[{role:"user",text:`(Comienza la escena: ${s.title})`}];
   S.rolesDone=(S.rolesDone||0)+1; checkBadges(); save();
   show("v-class");
@@ -1500,6 +1611,7 @@ function startRoleplay(s){
 /* ===== SOLO ESCUCHAR / AUDIO-CLASES (IA) ===== */
 var audioLesson=null, audioSents=[], audioIdx=0, audioPlaying=false;
 function openAudio(){
+  touchEng("audio");
   document.getElementById("audioBox").innerHTML=`<div class="card"><h2>🎧 Solo escuchar</h2>
     <p class="sub">Audio-clases de los temas, como un audiolibro. Poné play y escuchá; el texto y el apunte quedan para leer. Elegí un tema:</p>
     <div id="audioTopics"></div></div>`;
@@ -1560,6 +1672,7 @@ function audioRestart(){ speechSynthesis.cancel(); audioIdx=0; audioPlaying=true
 /* ===== HISTORIAS / LECTURAS (IA) ===== */
 let story=null, storyShowEs=false;
 async function openHistorias(){
+  touchEng("historias");
   show("v-historias");
   document.getElementById("histBox").innerHTML=`<div class="card center"><div class="spin dark" style="width:36px;height:36px;border-width:4px"></div><p class="sub" style="margin-top:14px">Escribiendo una historia para vos…</p></div>`;
   try{
@@ -1608,7 +1721,7 @@ function pronPool(){
   return base;
 }
 let pronTarget="";
-function gamePron(){ const p=pronPool(); pronTarget=p[Math.floor(Math.random()*p.length)]; renderPron(); }
+function gamePron(){ touchEng("pron"); const p=pronPool(); pronTarget=p[Math.floor(Math.random()*p.length)]; renderPron(); }
 function renderPron(result){
   document.getElementById("juegosBox").innerHTML=`<div class="card"><h2>🎙️ Pronunciación</h2>
     <p class="sub">Escuchá la frase y repetila. Te marco en verde lo que salió bien.</p>
@@ -1883,6 +1996,7 @@ Error típico de un hispanohablante en este tema (estate atento y corregilo si a
 Enseñá este punto paso a paso con ejemplos claros, usá el vocabulario de la lista, y dale 1-2 mini-ejercicios para practicarlo. Cuando ya lo practicó bien, felicitala y decile que puede tocar "Terminar" para completar la lección.`;
 }
 function startLesson(i){
+  touchEng("camino");
   const list=lessonsForLevel(); lessonScn=Object.assign({_idx:i},list[i]);
   mode="lesson"; lessonHistory=[{role:"user",text:`Quiero hacer la lección "${lessonScn.title}". Empecemos paso a paso.`}];
   show("v-class"); document.getElementById("topTitle").textContent="🗺️ "+lessonScn.title;
@@ -1903,6 +2017,7 @@ function finishOrEnd(){
 /* ===== REPASO DE ERRORES ===== */
 let errQueue=[], errIdx=0, errShow=false;
 function openErrores(){
+  touchEng("errores");
   const box=document.getElementById("errBox"); const errs=(S.errors||[]).slice().sort((a,b)=>b.count-a.count);
   if(!errs.length){ box.innerHTML=`<div class="card"><h2>🩹 Mis errores</h2><p class="sub">Todavía no hay errores registrados. A medida que practiques en las clases y situaciones, tus errores frecuentes van a aparecer acá para repasarlos.</p><button class="btn" onclick="startClass()">Ir a una clase</button></div>`; show("v-errores"); return; }
   box.innerHTML=`<div class="card"><h2>🩹 Mis errores frecuentes</h2><p class="sub">Lo que más te conviene reforzar, ordenado por frecuencia.</p><button class="btn" onclick="practiceErrors()">🎯 Practicar mis errores</button></div><div class="card" id="errList"></div>`;
@@ -1998,6 +2113,7 @@ function callCap(t){ const el=document.getElementById("callCap"); if(el) el.text
 function callYou(t){ const el=document.getElementById("callYou"); if(el) el.textContent=t?("Vos: "+t):""; }
 function startCall(){
   if(!SR){ alert("La llamada necesita micrófono. Usá Chrome en Android."); return; }
+  touchEng("call");
   mode="call"; callActive=true; callHistory=[]; callSilent=0;
   show("v-call"); renderCallUI();
   try{ speechSynthesis.speak(new SpeechSynthesisUtterance(" ")); }catch(e){} // desbloquea audio en el gesto
