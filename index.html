@@ -510,7 +510,8 @@ const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, histo
   learner:{ kc:{}, skills:{}, tasks:[], taskOther:"", engagement:{},
     time:{ minutesPerDay:10, hasDeadline:false, deadline:0 },
     affect:{ speakingAnxiety:3, correctionTolerance:"media", l1Support:"medio" },
-    rx:null } };
+    rx:null,
+    coach:{ lastRunAt:0, runs:0, lastPatch:null, rejected:[], rxChangesThisWeek:0, rxChangesWeekStart:0, prevRx:null } } };
 function backupOnce(){
   // Copia de seguridad de UNA sola vez, antes de que cualquier migracion toque los datos reales.
   try{
@@ -961,6 +962,86 @@ function openRx(){
 }
 document.getElementById("btnRxNext").onclick=()=>{ startClass(); };
 
+/* ===== COACH CON IA (ajusta la prescripcion, nunca el dominio medido) =====
+   1 llamada por sesion (no por turno), maximo cada 6hs, y solo si sobra cuota.
+   El patch que devuelve la IA se valida campo por campo antes de aplicarse. */
+function coachRec(){
+  S.learner=S.learner||{};
+  S.learner.coach=S.learner.coach||{lastRunAt:0,runs:0,lastPatch:null,rejected:[],rxChangesThisWeek:0,rxChangesWeekStart:0,prevRx:null};
+  return S.learner.coach;
+}
+function canRunCoach(){
+  const c=coachRec();
+  if(!S.key) return false;
+  if(Date.now()-(c.lastRunAt||0) < 6*3600*1000) return false; // maximo 1 cada 6 horas
+  if(remainingToday()<=20) return false; // dejar cuota para la clase de la alumna
+  return true;
+}
+function maybeRunCoach(){ if(canRunCoach()) coachPass(); }
+function coachSnapshot(){
+  const weak=weakKc(3).map(w=>w.es);
+  const topErr=(S.errors||[]).slice().sort((a,b)=>b.count-a.count).slice(0,3).map(e=>e.right);
+  const sk=S.learner.skills||{};
+  const skillsTxt=SKILLS.map(s=>`${s}:${Math.round((sk[s]?.p??0.3)*100)}%`).join(" ");
+  const rx=S.learner.rx||{mix:{speak:0.3,retrieval:0.3,input:0.2,grammar:0.2}};
+  return `Nivel ${S.level}. Racha actual ${S.stats.streak} días (mejor ${S.stats.best}). Destrezas: ${skillsTxt}. Temas débiles: ${weak.join(", ")||"ninguno detectado aún"}. Errores frecuentes: ${topErr.join(", ")||"ninguno"}. Mezcla actual: hablar ${Math.round(rx.mix.speak*100)}% repaso ${Math.round(rx.mix.retrieval*100)}% escuchar/leer ${Math.round(rx.mix.input*100)}% gramática ${Math.round(rx.mix.grammar*100)}%.`;
+}
+async function coachPass(){
+  const c=coachRec();
+  try{
+    const snap=coachSnapshot();
+    const sys=`Sos un coach experto en pedagogía de idiomas, ajustando el método de estudio de ${S.name} según su desempeño real. Respondé SOLO con el JSON del ajuste, sin texto fuera del JSON.`;
+    const prompt=`Datos reales de la alumna:\n${snap}\nSugerí ajustes PEQUEÑOS (no cambies todo de golpe) a la mezcla de práctica y a los temas de foco. JSON exacto: {"mix":{"speak":0-1,"retrieval":0-1,"input":0-1,"grammar":0-1},"focusKc":["hasta 3 ids, solo de esta lista: ${KC.map(k=>k.id).join(",")}"],"note":"1 oración en español explicando el ajuste, o vacío si no hace falta cambiar nada"}`;
+    const raw=await aiCall("task", sys, [{role:"user",parts:[{text:prompt}]}], {json:true});
+    applyCoachPatch(JSON.parse(raw));
+  }catch(e){ /* el coach es un plus: si falla, no debe romper nada ni avisar con alarma */ }
+  c.lastRunAt=Date.now(); c.runs=(c.runs||0)+1; save();
+}
+function applyCoachPatch(patch){
+  const c=coachRec();
+  const weekMs=7*86400000;
+  if(!c.rxChangesWeekStart||Date.now()-c.rxChangesWeekStart>weekMs){ c.rxChangesWeekStart=Date.now(); c.rxChangesThisWeek=0; }
+  const rejected=[];
+  if(!patch||typeof patch!=="object"){ c.rejected.push({at:Date.now(),reasons:["patch no es un objeto"]}); if(c.rejected.length>30) c.rejected=c.rejected.slice(-30); save(); return; }
+  if(c.rxChangesThisWeek>=3){ c.rejected.push({at:Date.now(),reasons:["límite semanal de 3 cambios ya alcanzado"]}); if(c.rejected.length>30) c.rejected=c.rejected.slice(-30); save(); return; }
+  if(patch.kc||patch.skills||patch.mastery) rejected.push("intentó tocar el dominio medido (kc/skills) — ignorado, eso lo escribe solo el motor local");
+  if(patch.minutesPerDay!==undefined) rejected.push("minutesPerDay no es un campo que el coach pueda cambiar");
+
+  const rx=Object.assign({},S.learner.rx||{});
+  const prevRx=JSON.parse(JSON.stringify(S.learner.rx||{}));
+  let changed=false;
+
+  if(patch.mix && typeof patch.mix==="object" && !Array.isArray(patch.mix)){
+    const keys=["speak","retrieval","input","grammar"];
+    const ok=keys.every(k=>typeof patch.mix[k]==="number" && isFinite(patch.mix[k]) && patch.mix[k]>=0 && patch.mix[k]<=1);
+    const sum=keys.reduce((s,k)=>s+(Number(patch.mix[k])||0),0);
+    if(ok && Math.abs(sum-1)<=0.02){
+      rx.mix={speak:patch.mix.speak,retrieval:patch.mix.retrieval,input:patch.mix.input,grammar:patch.mix.grammar};
+      changed=true;
+    } else rejected.push("mix inválido (no suma 1, o valores fuera de 0-1)");
+  }
+  if(Array.isArray(patch.focusKc)){
+    const clean=patch.focusKc.filter(id=>typeof id==="string" && KCSET.has(id)).slice(0,3);
+    if(clean.length!==patch.focusKc.length) rejected.push("focusKc traía ids inválidas, se filtraron");
+    rx.focusKc=clean; changed=true;
+  }
+
+  if(changed){
+    if(averageMasteryObserved()<0.5) rx.interleaveGrammar=false; // Hwang 2025: bajo dominio -> nunca intercalar
+    S.learner.rx=rx; c.rxChangesThisWeek++; c.prevRx=prevRx;
+  }
+  c.lastPatch={at:Date.now(), applied:changed, note:(typeof patch.note==="string"?patch.note.slice(0,200):"")};
+  if(rejected.length){ c.rejected.push({at:Date.now(),reasons:rejected}); if(c.rejected.length>30) c.rejected=c.rejected.slice(-30); }
+  save();
+}
+function undoLastPatch(){
+  const c=coachRec();
+  if(!c.prevRx){ toast("No hay ningún ajuste reciente para deshacer"); return; }
+  S.learner.rx=c.prevRx; c.prevRx=null; save();
+  toast("↩️ Deshecho el último ajuste del coach");
+  if(document.getElementById("v-modelo").classList.contains("active")) openModelo();
+}
+
 /* ===== PERSONALIZAR ===== */
 const STYLE_OPTS=["Más conversación","Más ejercicios","Bien de a poco","Con juegos","Corregir todo detallado","Enfocada en pronunciación","Vocabulario del día a día","Sobre viajes","Sobre familia"];
 function renderStyleChips(){
@@ -1137,6 +1218,7 @@ REGLAS:
 Nunca rompas el personaje ni uses encabezados markdown.`;
 }
 let mode="class", roleHistory=[], roleScn=null, lessonHistory=[], lessonScn=null;
+var endingSession=false;
 var callHistory=[], callRec=null, callActive=false, callState="idle", callSilent=0;
 function curHist(){ return mode==="role"?roleHistory : mode==="lesson"?lessonHistory : S.history; }
 function curSystem(){ return mode==="role"?roleSystem() : mode==="lesson"?lessonSystem() : teacherSystem(); }
@@ -1308,7 +1390,8 @@ async function sendToTeacher(userText){
   const t=document.createElement("div"); t.className="typing"; t.textContent=who+" está escribiendo…"; chat.appendChild(t);
   window.scrollTo(0,document.body.scrollHeight);
   try{ const raw=await aiCall(mode==="role"?"task":"full", curSystem(), geminiContents()); const clean=extractNotes(raw);
-    H.push({role:"teacher",text:clean}); checkBadges(); save(); t.remove(); addMsg("teacher",clean); speak(clean,"en-US"); }
+    H.push({role:"teacher",text:clean}); checkBadges(); save(); t.remove(); addMsg("teacher",clean); speak(clean,"en-US");
+    if(endingSession){ endingSession=false; maybeRunCoach(); } }
   catch(e){ t.remove();
     if(e.message==="LIMITE") addMsg("teacher","Por hoy la profe necesita descansar (llegaste al máximo de clase del día, o muy rápido: esperá 1 minuto). ¡Mientras seguí practicando gratis en 🃏 Repaso o 🎮 Juegos! Mañana volvemos. 😊");
     else addMsg("teacher","Uy, tuve un problema para responder 😔. Revisá la conexión o la clave. ("+e.message.slice(0,60)+")"); }
@@ -2008,10 +2091,11 @@ function finishLesson(){
   (LESSON_KC[`${lvl}:${lessonScn._idx}`]||[]).forEach(kc=>kcObserve(kc,true));
   S.xp=(S.xp||0)+20; checkBadges(); save();
   toast("✅ ¡Lección completada! +20 puntos"); openCamino();
+  maybeRunCoach();
 }
 function finishOrEnd(){
   if(mode==="lesson") finishLesson();
-  else quickSend('Terminemos la clase de hoy con un resumen corto de lo que aprendí');
+  else { endingSession=true; quickSend('Terminemos la clase de hoy con un resumen corto de lo que aprendí'); }
 }
 
 /* ===== REPASO DE ERRORES ===== */
@@ -2152,7 +2236,12 @@ function callListen(){
   try{ callRec.start(); }catch(e){}
 }
 function callRepeat(){ const last=[...callHistory].reverse().find(m=>m.role==="teacher"); if(last) speakCall(last.text); }
-function hangUp(){ callActive=false; mode="class"; if(callRec){ try{callRec.stop();}catch(e){} } if(window.speechSynthesis) speechSynthesis.cancel(); renderHome(); show("v-home"); }
+function hangUp(){
+  const hadEnoughTurns=callHistory.length>=6;
+  callActive=false; mode="class"; if(callRec){ try{callRec.stop();}catch(e){} } if(window.speechSynthesis) speechSynthesis.cancel();
+  renderHome(); show("v-home");
+  if(hadEnoughTurns) maybeRunCoach();
+}
 
 /* ===== FOTO / OCR (IA con visión) ===== */
 var fotoData=null;
@@ -2222,13 +2311,25 @@ function openModelo(){
       return `<tr><td class="feat">${id}</td><td>${(kcP(id)*100).toFixed(1)}%</td><td>${r.n}</td><td>${r.ok}</td></tr>`; }).join("");
     debugTable=`<div class="card"><h3>Tabla cruda (debug)</h3><div class="scroll"><table><thead><tr><th>KC</th><th>p</th><th>n</th><th>ok</th></tr></thead><tbody>${rows||"<tr><td colspan=4>vacío</td></tr>"}</tbody></table></div></div>`;
   }
+  const coach=S.learner?.coach;
+  let coachCard="";
+  if(coach && coach.runs){
+    const lp=coach.lastPatch;
+    coachCard=`<div class="card">
+      <h3>🧑‍🏫 Ajustes del coach</h3>
+      <p class="sub">${coach.runs} revisión(es) hecha(s) · ${coach.rxChangesThisWeek||0}/3 cambios esta semana</p>
+      ${lp&&lp.note?`<div class="note">${escapeHtml(lp.note)}</div>`:""}
+      ${coach.prevRx?`<button class="btn ghost" onclick="undoLastPatch()">↩️ Deshacer el último ajuste</button>`:""}
+      ${DEBUG&&coach.rejected?.length?`<p class="hint">Rechazados: ${coach.rejected.length} (ver consola con más detalle)</p>`:""}
+    </div>`;
+  }
   document.getElementById("modeloBox").innerHTML=`<div class="card">
     <h2>🧠 Cómo te veo</h2>
     <p class="sub">Esto no es una nota, es solo para que sepas en qué te estoy ayudando a mejorar. Se arma solo con lo que practicás.</p>
     ${bars}
     <h3 style="margin-top:16px">Temas a reforzar</h3>
     ${weakHtml}
-    </div>${debugTable}`;
+    </div>${coachCard}${debugTable}`;
   show("v-modelo");
 }
 
