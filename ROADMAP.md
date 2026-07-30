@@ -2,6 +2,19 @@
 
 Seguimiento de mejoras. Basado en el análisis de las mejores apps (Duolingo, Babbel, Busuu, Memrise, ELSA, TalkPal/Speak).
 
+## 🧠 Tutor adaptativo (en curso) — plan completo en `C:\Users\nicoi\.claude\plans\me-gustar-a-que-la-hazy-moth.md`
+
+Objetivo: dejar de ser "una app más" y modelar de verdad al alumno (qué necesita, qué domina, cómo se siente al hablar) para decidir cada día qué conviene practicar. Basado en evidencia real (no "estilos de aprendizaje" VAK — desacreditado por meta-análisis 2024; sí needs analysis, práctica espaciada g≈0.80, corrective feedback d≈0.64).
+
+- **Fase 0 — Andamiaje** ✅: backup automático de localStorage, `deepDefaults()` genérico, poda de cuota, `escapeHtml()` en todo el HTML dinámico, fixes (`--good`→`--ok` en pronunciación, `seenGuide` ahora se lee, bug de tipeo).
+- **Fase 1 — Contexto real en las 11 llamadas a IA** ✅: `buildLearnerContext(scope)` con presupuesto de tokens por tipo (full/task/drill/lookup) + `aiCall()`. Antes 8 de 11 funciones (roleplay, llamada, juegos, audio-clases, historias, diccionario, foto) no recibían nada del perfil del usuario — ahora todas lo reciben, cada una con el nivel de detalle que le corresponde. Verificado con `?debug=1`: todos los scopes dentro de presupuesto (full 370/900, task 113/400, drill 55/250, lookup 39/150 en la prueba).
+- **Fase 2 — Motor de dominio (BKT local, sin gastar IA)**: catálogo de ~22 puntos gramaticales, mide qué domina de verdad a partir del desempeño real (aciertos/errores), decae si no se practica. Espaciado cambia a intervalos iguales (mejor evidencia) en vez de expansivos.
+- **Fase 3 — Onboarding needs-analysis**: reemplaza el test de estilos por preguntas que sí predicen mejor aprendizaje (qué necesita hacer con el inglés, tiempo real disponible, ansiedad al hablar) + preferencia de formato (solo como desempate, nunca filtra contenido) + diagnóstico adaptativo + prescripción explicada.
+- **Fase 4 — Recomendador en el inicio**: "hoy te conviene esto porque…" en vez de menú fijo.
+- **Fase 5 — Coach con IA**: 1 llamada por sesión (no por turno) que ajusta la prescripción, con patch validado campo por campo (nunca puede tocar el dominio medido).
+- **Fase 6 — Contenido real**: recomendación de series/música/videos de un catálogo curado a mano por nivel + intereses (no inventado por la IA).
+- **Fuera de alcance ahora**: Supabase (investigado, documentado en el plan) y multi-usuario — decisión del dueño: "solo mi nonna por ahora", sin proxy de API.
+
 ## ✅ Hecho
 - Test de nivel (A1–C1) + plan personalizado
 - Clase con IA ("Miss Clara") + corrección ❌/✅

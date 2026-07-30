@@ -425,6 +425,7 @@
 
 <script>
 "use strict";
+const DEBUG = new URLSearchParams(location.search).has("debug");
 /* ===== Estado ===== */
 const LS = "claseIngles.v2";
 const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, history:[],
@@ -573,6 +574,42 @@ async function gemini(systemPrompt, contents, wantJson=false){
   bumpUsage();
   const j=await r.json();
   return j?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("")||"";
+}
+/* ===== Contexto del alumno (personalización real en cada llamada) ===== */
+const CTX_BUDGET={full:900,task:400,drill:250,lookup:150};
+function buildLearnerContext(scope, extra){
+  const p=S.prefs||{};
+  const estilo=(p.style&&p.style.length)?p.style.join(", "):"";
+  const mas=(p.styleMore||"").trim();
+  const obj=(p.objective||S.goal||"").trim();
+  const level=S.level||"A1";
+  let out="";
+  if(scope==="full"){
+    out=`Alumna: ${S.name}, nivel ${level} (MCER), hispanohablante mayor.`;
+    if(obj) out+=` Objetivo: ${obj}.`;
+    if(estilo) out+=` Prefiere: ${estilo}.`;
+    if(mas) out+=` Pedido extra: ${mas}.`;
+    if(S.material) out+=`\nMaterial propio de la alumna (usalo como base de ejemplos cuando venga bien, adaptado a su nivel):\n"""${S.material.slice(0,700)}"""`;
+  } else if(scope==="task"){
+    out=`Alumna: ${S.name}, nivel ${level}.`;
+    if(obj) out+=` Objetivo: ${obj}.`;
+    if(estilo) out+=` Prefiere: ${estilo}.`;
+  } else if(scope==="drill"){
+    out=`Nivel ${level}.`;
+    if(extra&&extra.focus) out+=` Enfoque de este ejercicio: ${extra.focus}.`;
+  } else if(scope==="lookup"){
+    out=`Nivel ${level}. Hispanohablante de Argentina.`;
+  }
+  if(DEBUG){
+    const over=out.length>CTX_BUDGET[scope];
+    console.log(`[ctx:${scope}] ${out.length}/${CTX_BUDGET[scope]} chars${over?" ⚠️ EXCEDE":""}`, out);
+  }
+  return out;
+}
+async function aiCall(scope, systemPrompt, contents, opts={}){
+  if(DEBUG) console.log(`[aiCall:${scope}] system prompt ${systemPrompt.length} chars`);
+  if(opts.image) return geminiVision(systemPrompt, contents, opts.image.base64, opts.image.mime, !!opts.json);
+  return gemini(systemPrompt, contents, !!opts.json);
 }
 async function geminiVision(systemPrompt, promptText, imgBase64, mimeType, wantJson=false){
   const model = S.model || "gemini-flash-latest";
@@ -767,14 +804,9 @@ function renderHome(){
 
 /* ===== CLASE ===== */
 function teacherSystem(){
-  const p=S.prefs||{};
-  const estilo=(p.style&&p.style.length)?`Estilo que prefiere la alumna: ${p.style.join(", ")}.`:"";
-  const mas=p.styleMore?`Pedido extra sobre las clases: ${p.styleMore}.`:"";
-  const obj=p.objective?`Lo que quiere lograr: ${p.objective}.`:"";
-  const mat=S.material?`\nMATERIAL QUE APORTÓ LA ALUMNA (canciones, textos, vocabulario o temas propios). Usalo como base para ejemplos, lecturas y ejercicios cuando venga bien, adaptándolo a su nivel:\n"""${S.material.slice(0,4000)}"""\n`:"";
-  return `Sos "Miss Clara", profesora de inglés NATIVA y experta (dominio C2, con formación TEFL/CELTA en enseñanza de inglés como lengua extranjera). Conocés a la perfección la gramática, la fonética, el vocabulario y el uso real del inglés, y explicás con precisión profesional, sin errores ni información inventada. Sos paciente y cálida. Le das clases particulares a ${S.name}, persona mayor hispanohablante de nivel ${S.level} (MCER).
-Objetivo de ${S.name}: ${S.goal||"aprender inglés general"}. Tema inicial sugerido: ${S.plan?.firstLessonTopic||"Saludos"}.
-PREFERENCIAS DE LA ALUMNA (respetalas): ${estilo} ${mas} ${obj}${mat}
+  return `Sos "Miss Clara", profesora de inglés NATIVA y experta (dominio C2, con formación TEFL/CELTA en enseñanza de inglés como lengua extranjera). Conocés a la perfección la gramática, la fonética, el vocabulario y el uso real del inglés, y explicás con precisión profesional, sin errores ni información inventada. Sos paciente y cálida.
+${buildLearnerContext("full")}
+Tema inicial sugerido: ${S.plan?.firstLessonTopic||"Saludos"}.
 REGLAS:
 1. Clase real: un concepto por vez, sin abrumar.
 2. Adaptá el inglés al nivel ${S.level}: en A1/A2 frases muy simples y traducí al español entre paréntesis; en B1+ más inglés y menos español.
@@ -845,7 +877,7 @@ async function sendToTeacher(userText){
   const who = mode==="role" ? (roleScn?roleScn.who:"la persona") : "Miss Clara";
   const t=document.createElement("div"); t.className="typing"; t.textContent=who+" está escribiendo…"; chat.appendChild(t);
   window.scrollTo(0,document.body.scrollHeight);
-  try{ const raw=await gemini(curSystem(),geminiContents()); const clean=extractNotes(raw);
+  try{ const raw=await aiCall(mode==="role"?"task":"full", curSystem(), geminiContents()); const clean=extractNotes(raw);
     H.push({role:"teacher",text:clean}); checkBadges(); save(); t.remove(); addMsg("teacher",clean); speak(clean,"en-US"); }
   catch(e){ t.remove();
     if(e.message==="LIMITE") addMsg("teacher","Por hoy la profe necesita descansar (llegaste al máximo de clase del día, o muy rápido: esperá 1 minuto). ¡Mientras seguí practicando gratis en 🃏 Repaso o 🎮 Juegos! Mañana volvemos. 😊");
@@ -1017,10 +1049,11 @@ function gameListen(){
     od.appendChild(b); });
 }
 // Completar (IA)
-async function gameCloze(){
+async function gameCloze(targetFocus){
   juegoLoading();
-  try{ const raw=await gemini(`Generás ejercicios de inglés para nivel ${S.level}. Respondé SOLO JSON.`,
-    [{role:"user",parts:[{text:`1 ejercicio de completar para nivel ${S.level}. JSON: {"sentence":"frase en inglés con ___ donde va la palabra","options":["3 opciones en inglés, 1 correcta"],"answer":"la correcta","hint_es":"pista corta en español"}`}]}],true);
+  try{ const ctx=buildLearnerContext("drill",{focus:targetFocus});
+    const raw=await aiCall("drill", `Generás ejercicios de inglés para nivel ${S.level}. Respondé SOLO JSON.`,
+    [{role:"user",parts:[{text:`${ctx}\n1 ejercicio de completar para nivel ${S.level}${targetFocus?` sobre: ${targetFocus}`:""}. JSON: {"sentence":"frase en inglés con ___ donde va la palabra","options":["3 opciones en inglés, 1 correcta"],"answer":"la correcta","hint_es":"pista corta en español"}`}]}],{json:true});
     renderCloze(JSON.parse(raw)); }catch(e){ juegoError(e); }
 }
 function renderCloze(q){
@@ -1038,10 +1071,11 @@ function renderCloze(q){
     od.appendChild(b); });
 }
 // Ordenar (IA)
-async function gameScramble(){
+async function gameScramble(targetFocus){
   juegoLoading();
-  try{ const raw=await gemini(`Generás ejercicios de inglés para nivel ${S.level}. Respondé SOLO JSON.`,
-    [{role:"user",parts:[{text:`1 oración corta y útil en inglés para nivel ${S.level} (5 a 8 palabras). JSON: {"sentence":"...","es":"traducción al español"}`}]}],true);
+  try{ const ctx=buildLearnerContext("drill",{focus:targetFocus});
+    const raw=await aiCall("drill", `Generás ejercicios de inglés para nivel ${S.level}. Respondé SOLO JSON.`,
+    [{role:"user",parts:[{text:`${ctx}\n1 oración corta y útil en inglés para nivel ${S.level}${targetFocus?` que practique: ${targetFocus}`:""} (5 a 8 palabras). JSON: {"sentence":"...","es":"traducción al español"}`}]}],{json:true});
     renderScramble(JSON.parse(raw)); }catch(e){ juegoError(e); }
 }
 function renderScramble(q){
@@ -1068,10 +1102,11 @@ function drawScramble(){
   }
 }
 // Traducir (IA)
-async function gameTranslate(){
+async function gameTranslate(targetFocus){
   juegoLoading();
-  try{ const raw=await gemini(`Generás ejercicios de inglés para nivel ${S.level}. Respondé SOLO JSON.`,
-    [{role:"user",parts:[{text:`1 frase corta en español para traducir al inglés (nivel ${S.level}). JSON: {"es":"frase en español","en":"traducción correcta al inglés"}`}]}],true);
+  try{ const ctx=buildLearnerContext("drill",{focus:targetFocus});
+    const raw=await aiCall("drill", `Generás ejercicios de inglés para nivel ${S.level}. Respondé SOLO JSON.`,
+    [{role:"user",parts:[{text:`${ctx}\n1 frase corta en español para traducir al inglés (nivel ${S.level})${targetFocus?`, que practique: ${targetFocus}`:""}. JSON: {"es":"frase en español","en":"traducción correcta al inglés"}`}]}],{json:true});
     renderTranslate(JSON.parse(raw)); }catch(e){ juegoError(e); }
 }
 function renderTranslate(q){
@@ -1113,7 +1148,8 @@ function renderRoleMenu(){
 }
 function roleSystem(){
   const s=roleScn;
-  return `Sos un ACTOR en un roleplay para que ${S.name} (nivel ${S.level} MCER, hispanohablante mayor) practique inglés hablando.
+  return `Sos un ACTOR en un roleplay para que ${S.name} practique inglés hablando.
+${buildLearnerContext("task")}
 ESCENA: ${s.desc}
 Tu personaje: ${s.role}.
 REGLAS:
@@ -1149,8 +1185,9 @@ async function generateAudio(topic,lesson){
   document.getElementById("audioBox").innerHTML=`<div class="card center"><div class="spin dark" style="width:36px;height:36px;border-width:4px"></div><p class="sub" style="margin-top:14px">Preparando tu audio-clase…</p></div>`;
   try{
     const material=lesson?`\nMaterial preparado para usar: gramática: ${lesson.grammar||lesson.focus}. Vocabulario a incluir: ${(lesson.vocab||[]).map(v=>v.en+" = "+v.es).join(" · ")}. Error típico a mencionar de pasada: ${lesson.mistake||"—"}.`:"";
-    const raw=await gemini(`Creás mini-clases habladas (audio) para aprender inglés, nivel ${S.level}. Respondé SOLO JSON.`,
-      [{role:"user",parts:[{text:`Creá una mini-clase hablada en inglés sobre "${topic}" para nivel ${S.level}. Como un profesor explicando de a poco, 8 a 12 oraciones claras, vocabulario acorde al nivel.${material} Sumá un apunte en español con los puntos clave. JSON: {"title":"título en inglés","script":"la clase en inglés, oraciones separadas por punto","apunte":["3 a 5 puntos clave en español"],"vocab":[{"en":"palabra o frase","es":"significado en español"}]}`}]}],true);
+    const ctx=buildLearnerContext("task");
+    const raw=await aiCall("task", `Creás mini-clases habladas (audio) para aprender inglés, nivel ${S.level}. Respondé SOLO JSON.`,
+      [{role:"user",parts:[{text:`${ctx}\nCreá una mini-clase hablada en inglés sobre "${topic}" para nivel ${S.level}. Como un profesor explicando de a poco, 8 a 12 oraciones claras, vocabulario acorde al nivel.${material} Sumá un apunte en español con los puntos clave. JSON: {"title":"título en inglés","script":"la clase en inglés, oraciones separadas por punto","apunte":["3 a 5 puntos clave en español"],"vocab":[{"en":"palabra o frase","es":"significado en español"}]}`}]}],{json:true});
     audioLesson=JSON.parse(raw);
     (audioLesson.apunte||[]).forEach(a=>S.notes.push({t:`🎧 ${audioLesson.title}: ${a}`,when:Date.now()}));
     (audioLesson.vocab||[]).forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,""); });
@@ -1198,8 +1235,9 @@ async function openHistorias(){
   document.getElementById("histBox").innerHTML=`<div class="card center"><div class="spin dark" style="width:36px;height:36px;border-width:4px"></div><p class="sub" style="margin-top:14px">Escribiendo una historia para vos…</p></div>`;
   try{
     const tema=S.prefs.objective||S.goal||"la vida cotidiana";
-    const raw=await gemini(`Escribís historias cortas graduadas para aprender inglés, nivel ${S.level}. Respondé SOLO JSON.`,
-      [{role:"user",parts:[{text:`Escribí una historia MUY corta (5 a 7 oraciones) en inglés para nivel ${S.level}, sobre ${tema} o un tema cotidiano lindo. Vocabulario simple y acorde al nivel. JSON: {"title":"título en inglés","story":"la historia en inglés","es":"traducción al español","questions":[{"q":"pregunta de comprensión en español","options":["3 opciones"],"answer":"la opción correcta"},{"q":"otra pregunta en español","options":["3 opciones"],"answer":"la correcta"}]}`}]}],true);
+    const ctx=buildLearnerContext("task");
+    const raw=await aiCall("task", `Escribís historias cortas graduadas para aprender inglés, nivel ${S.level}. Respondé SOLO JSON.`,
+      [{role:"user",parts:[{text:`${ctx}\nEscribí una historia MUY corta (5 a 7 oraciones) en inglés para nivel ${S.level}, sobre ${tema} o un tema cotidiano lindo. Vocabulario simple y acorde al nivel. JSON: {"title":"título en inglés","story":"la historia en inglés","es":"traducción al español","questions":[{"q":"pregunta de comprensión en español","options":["3 opciones"],"answer":"la opción correcta"},{"q":"otra pregunta en español","options":["3 opciones"],"answer":"la correcta"}]}`}]}],{json:true});
     story=JSON.parse(raw); storyShowEs=false;
     S.storiesRead=(S.storiesRead||0)+1; checkBadges(); save();
     renderStory();
@@ -1576,8 +1614,9 @@ async function diccSearch(){
   const res=document.getElementById("diccResult");
   res.innerHTML=`<div class="center" style="padding:16px"><div class="spin dark" style="width:30px;height:30px;border-width:4px"></div></div>`;
   try{
-    const raw=await gemini(`Sos un diccionario inglés-español experto y preciso. Respondé SOLO JSON.`,
-      [{role:"user",parts:[{text:`Definí la palabra o frase "${q}". Si está en español dame el inglés; si está en inglés dame el español. JSON: {"word":"la palabra/frase en inglés","es":"traducción al español","meaning":"significado o definición en español, claro y corto","example_en":"ejemplo de uso en inglés","example_es":"traducción del ejemplo al español","pron_es":"cómo suena, escrito para un hispanohablante"}`}]}],true);
+    const ctx=buildLearnerContext("lookup");
+    const raw=await aiCall("lookup", `Sos un diccionario inglés-español experto y preciso. Respondé SOLO JSON.`,
+      [{role:"user",parts:[{text:`${ctx}\nDefiní la palabra o frase "${q}". Si está en español dame el inglés; si está en inglés dame el español. JSON: {"word":"la palabra/frase en inglés","es":"traducción al español","meaning":"significado o definición en español, claro y corto","example_en":"ejemplo de uso en inglés","example_es":"traducción del ejemplo al español","pron_es":"cómo suena, escrito para un hispanohablante"}`}]}],{json:true});
     diccData=JSON.parse(raw);
     res.innerHTML=`<div class="card" style="margin-top:12px;box-shadow:none;border-color:var(--brand)">
       <h2 style="margin-bottom:2px">${escapeHtml(diccData.word)} <span class="sayen" style="display:inline-flex" onclick="speak(diccData.word,'en-US')">🔊</span></h2>
@@ -1592,7 +1631,8 @@ function diccSave(){ if(diccData&&diccData.word){ addCard(diccData.word,diccData
 
 /* ===== LLAMADA / VOZ EN VIVO ===== */
 function callSystem(){
-  return `Sos "Miss Clara", profesora de inglés NATIVA experta (C2, formación TEFL/CELTA), en una LLAMADA de voz con ${S.name} (nivel ${S.level} MCER, hispanohablante mayor). Es una CLASE hablada, como una llamada telefónica.
+  return `Sos "Miss Clara", profesora de inglés NATIVA experta (C2, formación TEFL/CELTA), en una LLAMADA de voz con ${S.name}. Es una CLASE hablada, como una llamada telefónica.
+${buildLearnerContext("full")}
 REGLAS:
 1. Hablás como en una charla real por teléfono: natural, cálida, frases CORTAS (1 a 3 oraciones), y SIEMPRE terminás con una pregunta o consigna para que ${S.name} hable.
 2. Adaptá el inglés al nivel ${S.level}: en A1/A2 muy simple (podés meter alguna palabra en español si hace falta); en B1+ más inglés.
@@ -1639,7 +1679,7 @@ async function callTurn(userText){
   setCallState("thinking");
   try{
     const contents=callHistory.map(m=>({role:m.role==="teacher"?"model":"user",parts:[{text:m.text}]}));
-    const raw=await gemini(callSystem(),contents);
+    const raw=await aiCall("full", callSystem(), contents);
     if(!callActive) return;
     callHistory.push({role:"teacher",text:raw}); bumpInter(); checkBadges(); save();
     speakCall(raw);
@@ -1690,9 +1730,10 @@ async function processFoto(base64,mime,previewUrl){
   res.innerHTML=`<div style="margin-top:14px"><img src="${previewUrl}" style="max-width:100%;border-radius:12px;max-height:220px;object-fit:cover"></div>
     <div class="center" style="padding:16px"><div class="spin dark" style="width:32px;height:32px;border-width:4px"></div><p class="sub">Leyendo la foto…</p></div>`;
   try{
-    const sys=`Sos "Miss Clara", profesora de inglés nativa experta (C2, TEFL/CELTA), ayudando a ${S.name} (nivel ${S.level} MCER) a entender un texto real que fotografió. Respondé SOLO JSON.`;
+    const ctx=buildLearnerContext("lookup");
+    const sys=`Sos "Miss Clara", profesora de inglés nativa experta (C2, TEFL/CELTA), ayudando a ${S.name} a entender un texto real que fotografió. ${ctx} Respondé SOLO JSON.`;
     const prompt=`Mirá la imagen. Extraé el texto en inglés que encuentres (cartel, etiqueta, menú, carta, lo que sea). Si hay poco o nada de texto en inglés, decilo. JSON: {"found":true|false,"text":"el texto tal cual está en la imagen","es":"traducción completa al español","meaning":"explicación breve en español de qué es y qué significa, en 1-2 oraciones","vocab":[{"en":"palabra o frase clave","es":"significado"}]}`;
-    const raw=await geminiVision(sys,prompt,base64,mime,true);
+    const raw=await aiCall("lookup", sys, prompt, {image:{base64,mime}, json:true});
     fotoData=JSON.parse(raw);
     S.photosRead=(S.photosRead||0)+1; checkBadges();
     if(fotoData.found && fotoData.vocab) fotoData.vocab.forEach(v=>{ if(v.en&&v.es) addCard(v.en,v.es,""); });
