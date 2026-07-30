@@ -327,6 +327,7 @@
       </div>
       <button class="btn sec" onclick="openFoto()" style="margin-top:10px">📷 Practicar con una foto</button>
       <button class="btn sec" onclick="openModelo()" style="margin-top:10px">🧠 Cómo te veo</button>
+      <button class="btn sec" onclick="openMedia()" style="margin-top:10px">🎬 Series, música y libros</button>
       <p class="hint center" id="usageHint" style="margin-top:10px"></p>
       <div class="grid" style="margin-top:16px">
         <div class="tile" onclick="openGoals()"><div class="ico">🏆</div><div class="t">Mis metas</div><div class="n" id="tGoals"></div></div>
@@ -441,6 +442,11 @@
       <div id="modeloBox"></div>
     </section>
 
+    <!-- CONTENIDO REAL (series, musica, libros) -->
+    <section class="view" id="v-media">
+      <div id="mediaBox"></div>
+    </section>
+
     <!-- APUNTES -->
     <section class="view" id="v-notes">
       <div class="card">
@@ -511,7 +517,8 @@ const DEFAULT = { key:"", model:"", name:"", goal:"", level:"", plan:null, histo
     time:{ minutesPerDay:10, hasDeadline:false, deadline:0 },
     affect:{ speakingAnxiety:3, correctionTolerance:"media", l1Support:"medio" },
     rx:null,
-    coach:{ lastRunAt:0, runs:0, lastPatch:null, rejected:[], rxChangesThisWeek:0, rxChangesWeekStart:0, prevRx:null } } };
+    coach:{ lastRunAt:0, runs:0, lastPatch:null, rejected:[], rxChangesThisWeek:0, rxChangesWeekStart:0, prevRx:null },
+    media:{ rejectedTitles:[], levelBias:0 } } };
 function backupOnce(){
   // Copia de seguridad de UNA sola vez, antes de que cualquier migracion toque los datos reales.
   try{
@@ -619,7 +626,7 @@ function show(id){
   document.getElementById("topLvl").textContent = S.level || "";
   const titles={ "v-home":"Inicio","v-class":"Clase con Miss Clara","v-goals":"Mis metas",
     "v-notes":"Apuntes","v-planview":"Mi plan","v-reminder":"Recordatorio","v-settings":"Ajustes",
-    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar","v-errores":"Mis errores","v-dicc":"Diccionario","v-foto":"Foto","v-modelo":"Cómo te veo" };
+    "v-repaso":"Repaso","v-juegos":"Juegos","v-roleplay":"Situaciones","v-logros":"Logros","v-camino":"Camino","v-historias":"Historias","v-audio":"Solo escuchar","v-errores":"Mis errores","v-dicc":"Diccionario","v-foto":"Foto","v-modelo":"Cómo te veo","v-media":"Contenido real" };
   document.getElementById("topTitle").textContent = titles[id] || "Mi Clase de Inglés";
   window.scrollTo(0,0);
 }
@@ -2333,6 +2340,89 @@ function openModelo(){
   show("v-modelo");
 }
 
+/* ===== CONTENIDO REAL (series, música, libros, podcasts) =====
+   Catalogo curado a mano con titulos reales y verificados (no generados por IA,
+   para no afirmar que existe algo inventado). La IA no interviene en esta lista. */
+const MEDIA_SEED=[
+ {kind:"podcast",title:"6 Minute English",creator:"BBC Learning English",cefr:"A2",tags:["read","other"],why:"Episodios cortos de 6 minutos pensados para aprender, con transcripción."},
+ {kind:"serie",title:"Peppa Pig",cefr:"A1",tags:["family"],why:"Frases muy cortas y repetitivas, ideal para empezar a entender sin subtítulos."},
+ {kind:"serie",title:"Daniel Tiger's Neighborhood",cefr:"A1",tags:["family"],why:"Vocabulario básico de rutinas diarias, hablado muy despacio."},
+ {kind:"cancion",title:"Head, Shoulders, Knees and Toes",cefr:"A1",tags:["family","music"],why:"Canción infantil clásica, vocabulario del cuerpo."},
+ {kind:"libro",title:"Oxford Bookworms Library (nivel Starter)",creator:"Oxford University Press",cefr:"A1",tags:["read"],why:"Colección de libros graduados hecha específicamente para estudiantes de inglés."},
+ {kind:"libro",title:"Penguin Readers (nivel Easystart)",creator:"Penguin",cefr:"A1",tags:["read"],why:"Otra colección de lectura graduada muy usada en clases de inglés."},
+ {kind:"pelicula",title:"Finding Nemo",cefr:"A2",tags:["family"],why:"Película animada con frases simples y repetidas."},
+ {kind:"pelicula",title:"Toy Story",cefr:"A2",tags:["family"],why:"Vocabulario cotidiano, ritmo pausado."},
+ {kind:"cancion",title:"Count on Me",creator:"Bruno Mars",cefr:"A2",tags:["music"],why:"Letra simple y clara, ritmo pausado."},
+ {kind:"cancion",title:"Perfect",creator:"Ed Sheeran",cefr:"A2",tags:["music"],why:"Vocabulario cotidiano, fácil de seguir."},
+ {kind:"libro",title:"Oxford Bookworms Library (nivel 2)",creator:"Oxford University Press",cefr:"A2",tags:["read"],why:"Historias adaptadas con vocabulario controlado."},
+ {kind:"serie",title:"Extra English",cefr:"A2",tags:["travel","other"],why:"Sitcom hecha específicamente para estudiantes de inglés."},
+ {kind:"podcast",title:"The English We Speak",creator:"BBC Learning English",cefr:"B1",tags:["other"],why:"Expresiones cotidianas explicadas en episodios de pocos minutos."},
+ {kind:"serie",title:"Modern Family",cefr:"B1",tags:["family","series"],why:"Familia, situaciones cotidianas, humor fácil de seguir."},
+ {kind:"serie",title:"Friends",cefr:"B1",tags:["series"],why:"El clásico para aprender inglés conversacional, frases cortas."},
+ {kind:"serie",title:"The Big Bang Theory",cefr:"B1",tags:["series","work"],why:"Diálogos claros, aunque con vocabulario de ciencia a veces."},
+ {kind:"serie",title:"How I Met Your Mother",cefr:"B1",tags:["series"],why:"Narración en pasado, buena práctica de tiempos verbales."},
+ {kind:"pelicula",title:"Forrest Gump",cefr:"B1",tags:["other"],why:"Narración clara, buena práctica de pasado simple."},
+ {kind:"cancion",title:"Yesterday",creator:"The Beatles",cefr:"B1",tags:["music"],why:"Letra corta y melancólica, buena para practicar pasado."},
+ {kind:"cancion",title:"Let It Be",creator:"The Beatles",cefr:"B1",tags:["music"],why:"Frases simples y repetitivas, fácil de cantar."},
+ {kind:"libro",title:"Charlie and the Chocolate Factory",creator:"Roald Dahl",cefr:"B1",tags:["read","family"],why:"Prosa simple, ideal para primera lectura sin adaptar."},
+ {kind:"libro",title:"Harry Potter and the Philosopher's Stone",creator:"J.K. Rowling",cefr:"B1",tags:["read"],why:"El primer libro es accesible y muy popular, motiva a seguir leyendo."},
+ {kind:"podcast",title:"Luke's ENGLISH Podcast",creator:"Luke Thompson",cefr:"B2",tags:["other"],why:"Podcast hecho por un profesor de inglés, habla claro y natural."},
+ {kind:"serie",title:"Brooklyn Nine-Nine",cefr:"B2",tags:["series","work"],why:"Ritmo rápido pero con humor accesible."},
+ {kind:"serie",title:"The Office (US)",cefr:"B2",tags:["series","work"],why:"Ambiente de oficina, útil si el objetivo es el trabajo."},
+ {kind:"serie",title:"Stranger Things",cefr:"B2",tags:["series"],why:"Diálogos naturales, con acción."},
+ {kind:"pelicula",title:"The Devil Wears Prada",cefr:"B2",tags:["work"],why:"Ambiente laboral, inglés claro de Nueva York."},
+ {kind:"cancion",title:"Hotel California",creator:"Eagles",cefr:"B2",tags:["music"],why:"Letra más narrativa y con imágenes poéticas."},
+ {kind:"serie",title:"The Crown",cefr:"C1",tags:["series"],why:"Inglés británico formal, vocabulario más sofisticado."},
+ {kind:"serie",title:"Sherlock",cefr:"C1",tags:["series"],why:"Vocabulario rico, ritmo rápido de diálogo."},
+ {kind:"serie",title:"Breaking Bad",cefr:"C1",tags:["series"],why:"Inglés americano natural, temas adultos."},
+ {kind:"pelicula",title:"The Social Network",cefr:"C1",tags:["work"],why:"Diálogos rápidos e inteligentes."},
+ {kind:"cancion",title:"Bohemian Rhapsody",creator:"Queen",cefr:"C1",tags:["music"],why:"Estructura compleja, vocabulario variado."},
+ {kind:"libro",title:"The Great Gatsby",creator:"F. Scott Fitzgerald",cefr:"C1",tags:["read"],why:"Prosa literaria, vocabulario más elaborado."},
+ {kind:"libro",title:"1984",creator:"George Orwell",cefr:"C1",tags:["read"],why:"Clásico con vocabulario rico y estructuras complejas."},
+];
+const KIND_EMOJI={serie:"📺",pelicula:"🎬",cancion:"🎵",libro:"📖",podcast:"🎙️"};
+function suggestMedia(n){
+  n=n||3;
+  const levelOrder=["A1","A2","B1","B2","C1"];
+  const lvlIdx=Math.max(0,levelOrder.indexOf(S.level||"A1"));
+  const bias=S.learner?.media?.levelBias||0;
+  const targetIdx=Math.max(0,Math.min(levelOrder.length-1, lvlIdx+(bias<0?-1:0)));
+  const myTags=new Set((S.learner?.tasks||[]).map(t=>t.id.replace(/^t_/,"")));
+  const rejected=new Set(S.learner?.media?.rejectedTitles||[]);
+  return MEDIA_SEED.filter(m=>!rejected.has(m.title)).map(m=>{
+    const d=Math.abs(levelOrder.indexOf(m.cefr)-targetIdx);
+    const lvlMatch = d===0?1:d===1?0.5:0.1;
+    const tagMatch = m.tags.some(t=>myTags.has(t))?1:0.3;
+    return Object.assign({},m,{score:lvlMatch*0.6+tagMatch*0.4});
+  }).sort((a,b)=>b.score-a.score).slice(0,n);
+}
+function mediaFeedback(title,verdict){
+  S.learner.media=S.learner.media||{rejectedTitles:[],levelBias:0};
+  if(verdict==="no_encontrada") S.learner.media.rejectedTitles.push(title);
+  else if(verdict==="muy_dificil") S.learner.media.levelBias=-1;
+  else if(verdict==="trabajarla") S.material=(S.material?S.material+"\n":"")+title;
+  save(); openMedia();
+}
+function openMedia(){
+  touchEng("media");
+  const recs=suggestMedia(3);
+  const html = recs.length ? recs.map(m=>`<div class="note">
+      <b>${KIND_EMOJI[m.kind]||"🎯"} ${escapeHtml(m.title)}</b>${m.creator?` <span style="color:var(--muted);font-size:14px">— ${escapeHtml(m.creator)}</span>`:""}
+      <span class="chip" style="margin-left:6px">${m.cefr}</span>
+      <p style="margin:6px 0 8px">${escapeHtml(m.why)}</p>
+      <div class="row">
+        <button class="btn sec" style="margin:0;font-size:14px" onclick="mediaFeedback('${m.title.replace(/'/g,"\\'")}','trabajarla')">🎯 Trabajarla en mis clases</button>
+        <button class="btn ghost" style="margin:0;font-size:14px" onclick="mediaFeedback('${m.title.replace(/'/g,"\\'")}','no_encontrada')">No la encontré</button>
+      </div></div>`).join("")
+    : `<p class="sub">Por ahora no tengo más sugerencias para tu nivel e intereses. Volvé a intentar más tarde.</p>`;
+  document.getElementById("mediaBox").innerHTML=`<div class="card">
+    <h2>🎬 Series, música y libros</h2>
+    <p class="sub">Contenido real para practicar escuchando y leyendo, elegido según tu nivel (${S.level||"A1"}) y tus intereses.</p>
+    ${html}
+    <p class="hint">No aseguro en qué plataforma está cada cosa — buscalo por el título, puede variar según el país.</p>
+    </div>`;
+  show("v-media");
+}
 /* ===== Boot ===== */
 function routeAfterKey(){
   document.getElementById("setGoal").value=S.dailyGoal; paintRem();
